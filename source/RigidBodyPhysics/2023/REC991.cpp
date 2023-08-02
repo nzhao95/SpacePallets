@@ -2,9 +2,13 @@
 #include "REC991.h"
 #include <GLFW/glfw3.h>
 #include <GL/glu.h>
+#include <cmath>
 
 namespace REC991
 {
+using namespace rigidbody;
+static constexpr float time_step = 1.e-2f;
+
 static GLFWwindow* GLwindow;
 
 void reshape(int width, int height) {
@@ -32,7 +36,7 @@ void GlobalInit()
     glfwMakeContextCurrent(GLwindow);
     glEnable(GL_DEPTH_TEST);
 
-    glfwSetFramebufferSizeCallback(GLwindow, (GLFWframebuffersizefun) reshape);
+    glfwSetFramebufferSizeCallback(GLwindow, (GLFWframebuffersizefun)reshape);
 }
 
 void GlobalTeardown()
@@ -41,21 +45,11 @@ void GlobalTeardown()
     glfwTerminate();
 }
 
-
-void drawCube(const rigidbody::f3x3& orientation, const rigidbody::f3& lengths)
+void drawCube(const quat& orientation, const rigidbody::f3& lengths)
 {
     GLfloat x = lengths[0];
     GLfloat y = lengths[1];
     GLfloat z = lengths[2];
-
-    auto applyOrientationToVertex = [orientation](GLfloat& x, GLfloat& y, GLfloat& z) {
-        GLfloat newX = orientation[0][0] * x + orientation[0][1] * y + orientation[0][2] * z;
-        GLfloat newY = orientation[1][0] * x + orientation[1][1] * y + orientation[1][2] * z;
-        GLfloat newZ = orientation[2][0] * x + orientation[2][1] * y + orientation[2][2] * z;
-        x = newX;
-        y = newY;
-        z = newZ;
-    };
 
     //init with initial pos
     GLfloat vertices[] =
@@ -78,9 +72,13 @@ void drawCube(const rigidbody::f3x3& orientation, const rigidbody::f3& lengths)
         1, 1, 1,   1, 1, 1,   1, 1, 1,   1, 1, 1
     };
 
-    static float alpha = 0;
-    //attempt to rotate cube
-    glRotatef(alpha, 0, 1, 1);
+    f alpha = 2 * acosf(orientation.w);
+
+    f sin_half_theta = sqrt(1.f - pow(orientation.w, 2));
+    if (sin_half_theta < 1.e-9)
+        glRotatef(alpha, 1, 0, 0);
+    else
+        glRotatef(alpha, orientation.x / sin_half_theta, orientation.y / sin_half_theta, orientation.z / sin_half_theta);
 
     /* We have a color array and a vertex array */
     glEnableClientState(GL_VERTEX_ARRAY);
@@ -97,7 +95,7 @@ void drawCube(const rigidbody::f3x3& orientation, const rigidbody::f3& lengths)
     alpha += 1;
 }
 
-void display(const rigidbody::f3x3& orientation, const rigidbody::f3& lengths) {
+void display(const quat& orientation, const rigidbody::f3& lengths) {
     // Scale to window size
     GLint windowWidth, windowHeight;
     glfwGetWindowSize(GLwindow, &windowWidth, &windowHeight);
@@ -121,20 +119,38 @@ void display(const rigidbody::f3x3& orientation, const rigidbody::f3& lengths) {
 
 rigidbody::f3x3 Simulate(rigidbody::SimulationContext const& context)
 {
-    rigidbody::f3x3 orientation = rigidbody::f3x3::id();
-    orientation[0][2] = 0.5f;
-    orientation[1][2] = 0.5f;
+    using namespace rigidbody;
 
     ((void)context);
 
-    if (GLwindow) {
+    const f density = context.density;                           
+    const f3& lengths = context.lengths;                          
+    const f3& initial_impulse = context.initial_impulse;                  
+    const f3& direction = context.initial_impulse_application_point;
 
-        while (!glfwWindowShouldClose(GLwindow)) {
+    const f final_time = context.final_time;
+
+    f current_time = 0.f;
+    quat orientation;
+    const quat angular_velocity = context.ComputeInitialAngularVelocity();
+
+    f currentTime = 0.0;
+    while (currentTime < final_time) {
+        orientation.applyAngularVelocity(angular_velocity, time_step);
+
+        currentTime += time_step;
+
+        if (GLwindow && !glfwWindowShouldClose(GLwindow)) {
+
             display(orientation, context.lengths);
             glfwPollEvents();
         }
     }
-    return orientation;
+
+    std::cout << orientation << "\n";
+    f3x3 final_orientation = quaternionToMatrix(orientation);
+
+    return final_orientation;
 }
 
 } // namespace REC991

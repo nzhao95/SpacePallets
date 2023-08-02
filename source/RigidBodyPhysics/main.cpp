@@ -10,8 +10,6 @@
 
 #include <Helpers.h>
 #include "physicshelper.h"
-#include <GLFW/glfw3.h>
-
 
 #ifndef CANDIDATE
 #define CANDIDATE REC991
@@ -71,17 +69,22 @@ extern "C" int _tmain(int /* argc */, TCHAR** /* argv */)
     {
         CANDIDATE::GlobalInit();
 
-        for (size_t i = 1; i < array_size(contexts); ++i)
+        const size_t arraySize = array_size(contexts);
+        for (size_t i = 0; i < 2; ++i)
         {
             f3x3 const result = CANDIDATE::Simulate(contexts[i]);
             f diff = frobenius_norm(result - reference_solutions[i]);
             if (std::abs(diff) < simulation_epsilon)
             {
                 std::printf("OK:      Simulation %zd: Difference with reference %f\n", i, diff);
+                std::cout << matrixToQuaternion(reference_solutions[i]) << "\n";
+                std::cout << "Output is: \n" << result << "\nshould have been" << reference_solutions[i] << "\n";
             }
             else
             {
                 std::printf("TOO FAR: Simulation %zd: Difference with reference %f\n", i, diff);
+                std::cout << matrixToQuaternion(reference_solutions[i]) << "\n";
+                std::cout << "Output is : \n" << result << "\nshould have been : \n" << reference_solutions[i] << "\n";
             }
             
 #ifdef HAVE_CHECK

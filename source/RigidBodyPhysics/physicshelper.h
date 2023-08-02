@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <iostream>
 
 namespace rigidbody
 {
@@ -10,7 +11,7 @@ namespace rigidbody
 #pragma warning(disable : 4201)
 #endif
 
-using f = float;
+using f = double;
 
 struct f3
 {
@@ -37,9 +38,21 @@ struct f3
     {
         return f3(x * rhs.x, y * rhs.y, z * rhs.z);
     }
+    bool operator==(const f3 rhs)
+    {
+        return v[0] == rhs[0] && v[1] == rhs[1] && v[2] == rhs[2];
+    }
     f3 operator*(f scal) const
     {
         return f3(scal * x, scal * y, scal * z);
+    }
+    f3 operator/(f scal) const
+    {
+        if (scal == 0.0)
+        {
+            throw std::runtime_error("Division by zero");
+        }
+        return f3(x / scal, y / scal, z / scal);
     }
     f3 operator-() const
     {
@@ -54,6 +67,12 @@ struct f3
         return v[a];
     }
 };
+
+// Stream insertion for printing
+inline std::ostream& operator<<(std::ostream& os, const f3& v) {
+    os << "(" << v.x << ", " << v.y << ", " << v.z << ")";
+    return os;
+}
 
 inline f3 operator*(f scal, f3 v)
 {
@@ -72,7 +91,7 @@ inline f3 cross(f3 a, f3 b)
 
 struct f3x3
 {
-    f m[3][3];
+    f3 m[3];
 
     f3x3() {
         for (int i = 0; i < 3; ++i)
@@ -118,6 +137,11 @@ struct f3x3
         return result;
     }
 
+    bool operator==(const f3x3 rhs)
+    {
+        return m[0] == rhs[0] && m[1] == rhs[1] && m[2] == rhs[2];
+    }
+
     f3 operator*(f3 const& rhs) const
     {
         f3 result;
@@ -135,8 +159,7 @@ struct f3x3
     {
         f3x3 result;
         for (int i = 0; i < 3; ++i)
-            for (int j = 0; j < 3; ++j)
-                result.m[i][j] = i == j ? 1.f : 0.f;
+            result.m[i][i] = 1.0;
         return result;
     }
 
@@ -144,8 +167,7 @@ struct f3x3
     {
         f3x3 result;
         for (int i = 0; i < 3; ++i)
-            for (int j = 0; j < 3; ++j)
-                result.m[i][j] = i == j ? d.v[i] : 0.f;
+            result.m[i][i] = d.v[i];
         return result;
     }
 
@@ -154,7 +176,7 @@ struct f3x3
         f3x3 result;
         for (int i = 0; i < 3; ++i)
             for (int j = 0; j < 3; ++j)
-                result.m[i][j] = 0.f;
+                result.m[i][j] = 0.0;
         return result;
     }
 
@@ -181,11 +203,22 @@ struct f3x3
         return m[a];
     }
 
+    f3& operator[](int const a)
+    {
+        return m[a];
+    }
+
     f trace() const
     {
         return m[0][0] + m[1][1] + m[2][2];
     }
 };
+
+// Stream insertion for printing
+inline std::ostream& operator<<(std::ostream& os, const f3x3& m) {
+    os << "[" << m[0] << ",\n" << m[1] << ",\n" << m[2] << "]";
+    return os;
+}
 
 inline f3x3 operator*(f scal, f3x3 m)
 {
@@ -195,6 +228,159 @@ inline f3x3 operator*(f scal, f3x3 m)
             result.m[i][j] = m.m[i][j] * scal;
     return result;
 }
+
+struct quat {
+    f x, y, z, w; 
+    // Constructors
+    quat() : w(1.0), x(0.0), y(0.0), z(0.0) {}
+    quat(f w, f x, f y, f z) : w(w), x(x), y(y), z(z) {}
+
+    f norm() const {
+        return std::sqrtf( w* w + x * x + y * y + z * z);
+    }
+
+    quat conjugate() const {
+        return quat(w, -x, -y, -z);
+    }
+
+    void normalize() {
+        const f invNorm = 1.0 / this->norm();
+        w = w * invNorm;
+        x = x * invNorm;
+        y = y * invNorm;
+        z = z * invNorm;
+    }
+
+    quat operator+(const quat& rhs) const {
+        return quat(w + rhs.w, x + rhs.x, y + rhs.y, z + rhs.z);
+    }
+
+    quat operator-(const quat& rhs) const {
+        return quat(w - rhs.w, x - rhs.x, y - rhs.y, z - rhs.z);
+    }
+
+    quat operator*(const quat& rhs) const {
+        return quat(
+            w * rhs.w - x * rhs.x - y * rhs.y - z * rhs.z,
+            w * rhs.x + x * rhs.w + y * rhs.z - z * rhs.y,
+            w * rhs.y - x * rhs.z + y * rhs.w + z * rhs.x,
+            w * rhs.z + x * rhs.y - y * rhs.x + z * rhs.w
+        );
+    }
+    quat operator*(f scalar) const {
+        return quat(w * scalar, x * scalar, y * scalar, z * scalar);
+    }
+
+    friend quat operator*(f scalar, const quat& quat) {
+        return quat * scalar;
+    };
+
+    friend std::ostream& operator<<(std::ostream& os, const quat& quat);
+
+    bool operator==(const quat& rhs) const {
+        return (w == rhs.w && x == rhs.x && y == rhs.y && z == rhs.z);
+    }
+
+    static quat quatDerivative(const quat& q, const quat& angularVelocity) {
+        return 0.5f * angularVelocity *q;
+    }
+
+    // Function to apply angular acceleration over time using the Runge-Kutta method
+    void applyAngularVelocity(const quat& angularVelocity, f dt)
+    {
+        constexpr f asixth = 1.0 / 6.0;
+
+        quat& q = *this;
+
+        // Update quat using the Runge-Kutta method (4th order)
+        //quat k1 = quatDerivative(q, angularVelocity);
+        //quat k2 = quatDerivative(q + 0.5f * k1, angularVelocity);
+        //quat k3 = quatDerivative(q + 0.5f * k2, angularVelocity);
+        //quat k4 = quatDerivative(q + k3, angularVelocity);
+
+        //q = q + (k1 + 2.0 * k2 + 2.0 * k3 + k4) * dt * asixth;
+
+        // Normalize quaternion at each step to ensure it remains a unit quaternion
+        q = q + quatDerivative(q, angularVelocity) * dt;
+        q.normalize();
+    }
+};
+
+inline std::ostream& operator<<(std::ostream& os, const quat& quat) {
+    os << quat.w << " + " << quat.x << "i + " << quat.y << "j + " << quat.z << "k";
+    return os;
+}
+
+// Function to convert a quaternion to a rotation matrix
+inline f3x3 quaternionToMatrix(const quat& q) {
+    f3x3 matrix;
+
+    // Calculate elements of the rotation matrix
+    f w2 = q.w * q.w;
+    f x2 = q.x * q.x;
+    f y2 = q.y * q.y;
+    f z2 = q.z * q.z;
+    f wx = q.w * q.x;
+    f wy = q.w * q.y;
+    f wz = q.w * q.z;
+    f xy = q.x * q.y;
+    f xz = q.x * q.z;
+    f yz = q.y * q.z;
+
+    // Set the elements of the rotation matrix
+    matrix[0][0] = w2 + x2 - y2 - z2;
+    matrix[0][1] = 2.0 * (xy - wz);
+    matrix[0][2] = 2.0 * (xz + wy);
+
+    matrix[1][0] = 2.0 * (xy + wz);
+    matrix[1][1] = w2 - x2 + y2 - z2;
+    matrix[1][2] = 2.0 * (yz - wx);
+
+    matrix[2][0] = 2.0 * (xz - wy);
+    matrix[2][1] = 2.0 * (yz + wx);
+    matrix[2][2] = w2 - x2 - y2 + z2;
+
+    return matrix;
+}
+// Function to convert a rotation matrix to 
+inline quat matrixToQuaternion(const f3x3& matrix) {
+    quat q;
+
+    f trace = matrix.trace();
+    f root;
+
+    if (trace > 0.0) {
+        root = std::sqrtf(trace + 1.0);
+        q.w = 0.5f * root;
+        root = 0.5f / root;
+        q.x = (matrix[2][1] - matrix[1][2]) * root;
+        q.y = (matrix[0][2] - matrix[2][0]) * root;
+        q.z = (matrix[1][0] - matrix[0][1]) * root;
+    }
+    else {
+        static size_t next[3] = { 1, 2, 0 };
+        size_t i = 0;
+        if (matrix[1][1] > matrix[0][0]) {
+            i = 1;
+        }
+        if (matrix[2][2] > matrix[i][i]) {
+            i = 2;
+        }
+        size_t j = next[i];
+        size_t k = next[j];
+
+        root = std::sqrtf(matrix[i][i] - matrix[j][j] - matrix[k][k] + 1.0);
+        f* qArr[3] = { &q.x, &q.y, &q.z };
+        *qArr[i] = 0.5f * root;
+        root = 0.5f / root;
+        q.w = (matrix[k][j] - matrix[j][k]) * root;
+        *qArr[j] = (matrix[j][i] + matrix[i][j]) * root;
+        *qArr[k] = (matrix[k][i] + matrix[i][k]) * root;
+    }
+
+    return q;
+}
+
 
 // *****************************************************************************
 
@@ -206,6 +392,26 @@ struct SimulationContext
     f3 initial_impulse_application_point{}; // Point on the body where the impulse is applied
 
     f final_time;                           // Final time of the simulation
+
+    f mass() const
+    {
+        return lengths[0] * lengths[1] * lengths[2] * density;
+    }
+
+    quat ComputeInitialAngularVelocity() const
+    {
+        const f mass = this->mass();
+        if (mass <= 0.0)
+        {
+            throw std::runtime_error("Null density is not allowed!");
+        }
+
+        f3 torque = cross(initial_impulse_application_point, initial_impulse);
+
+        f3 angularVelocity = torque / mass;
+
+        return quat(0.0, angularVelocity[0], angularVelocity[1], angularVelocity[2]);
+    }
 };
 
 #ifdef _MSC_VER
