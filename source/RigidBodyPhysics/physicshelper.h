@@ -11,7 +11,7 @@ namespace rigidbody
 #pragma warning(disable : 4201)
 #endif
 
-using f = double;
+using f = float;
 
 struct f3
 {
@@ -48,7 +48,7 @@ struct f3
     }
     f3 operator/(f scal) const
     {
-        if (scal == 0.0)
+        if (scal == 0.f)
         {
             throw std::runtime_error("Division by zero");
         }
@@ -159,7 +159,7 @@ struct f3x3
     {
         f3x3 result;
         for (int i = 0; i < 3; ++i)
-            result.m[i][i] = 1.0;
+            result.m[i][i] = 1.f;
         return result;
     }
 
@@ -176,7 +176,7 @@ struct f3x3
         f3x3 result;
         for (int i = 0; i < 3; ++i)
             for (int j = 0; j < 3; ++j)
-                result.m[i][j] = 0.0;
+                result.m[i][j] = 0.f;
         return result;
     }
 
@@ -232,7 +232,7 @@ inline f3x3 operator*(f scal, f3x3 m)
 struct quat {
     f x, y, z, w; 
     // Constructors
-    quat() : w(1.0), x(0.0), y(0.0), z(0.0) {}
+    quat() : w(1.f), x(0.f), y(0.f), z(0.f) {}
     quat(f w, f x, f y, f z) : w(w), x(x), y(y), z(z) {}
 
     f norm() const {
@@ -244,19 +244,40 @@ struct quat {
     }
 
     void normalize() {
-        const f invNorm = 1.0 / this->norm();
+        const f invNorm = 1.f / this->norm();
         w = w * invNorm;
         x = x * invNorm;
         y = y * invNorm;
         z = z * invNorm;
     }
 
+    void operator+=(const quat& rhs) {
+        w += rhs.w;
+        x += rhs.x;
+        y += rhs.y;
+        z += rhs.z;
+    }
+
     quat operator+(const quat& rhs) const {
         return quat(w + rhs.w, x + rhs.x, y + rhs.y, z + rhs.z);
     }
 
+    void operator-=(const quat& rhs) {
+        w -= rhs.w;
+        x -= rhs.x;
+        y -= rhs.y;
+        z -= rhs.z;
+    }
+
     quat operator-(const quat& rhs) const {
         return quat(w - rhs.w, x - rhs.x, y - rhs.y, z - rhs.z);
+    }
+
+    void operator*=(const quat& rhs) {
+        w = w * rhs.w - x * rhs.x - y * rhs.y - z * rhs.z;
+        x = w * rhs.x + x * rhs.w + y * rhs.z - z * rhs.y;
+        y = w * rhs.y - x * rhs.z + y * rhs.w + z * rhs.x;
+        z = w * rhs.z + x * rhs.y - y * rhs.x + z * rhs.w;
     }
 
     quat operator*(const quat& rhs) const {
@@ -267,6 +288,7 @@ struct quat {
             w * rhs.z + x * rhs.y - y * rhs.x + z * rhs.w
         );
     }
+
     quat operator*(f scalar) const {
         return quat(w * scalar, x * scalar, y * scalar, z * scalar);
     }
@@ -288,20 +310,19 @@ struct quat {
     // Function to apply angular acceleration over time using the Runge-Kutta method
     void applyAngularVelocity(const quat& angularVelocity, f dt)
     {
-        constexpr f asixth = 1.0 / 6.0;
+        constexpr f asixth = 1.f / 6.f;
 
         quat& q = *this;
 
         // Update quat using the Runge-Kutta method (4th order)
-        //quat k1 = quatDerivative(q, angularVelocity);
-        //quat k2 = quatDerivative(q + 0.5f * k1, angularVelocity);
-        //quat k3 = quatDerivative(q + 0.5f * k2, angularVelocity);
-        //quat k4 = quatDerivative(q + k3, angularVelocity);
+        quat k1 = quatDerivative(q, angularVelocity);
+        quat k2 = quatDerivative(q + 0.5f * k1, angularVelocity);
+        quat k3 = quatDerivative(q + 0.5f * k2, angularVelocity);
+        quat k4 = quatDerivative(q + k3, angularVelocity);
 
-        //q = q + (k1 + 2.0 * k2 + 2.0 * k3 + k4) * dt * asixth;
+        q = q + (k1 + 2.f * k2 + 2.f * k3 + k4) * dt * asixth;
 
         // Normalize quaternion at each step to ensure it remains a unit quaternion
-        q = q + quatDerivative(q, angularVelocity) * dt;
         q.normalize();
     }
 };
@@ -311,7 +332,7 @@ inline std::ostream& operator<<(std::ostream& os, const quat& quat) {
     return os;
 }
 
-// Function to convert a quaternion to a rotation matrix
+// Function to convert a quaternion to the final matrix
 inline f3x3 quaternionToMatrix(const quat& q) {
     f3x3 matrix;
 
@@ -329,15 +350,15 @@ inline f3x3 quaternionToMatrix(const quat& q) {
 
     // Set the elements of the rotation matrix
     matrix[0][0] = w2 + x2 - y2 - z2;
-    matrix[0][1] = 2.0 * (xy - wz);
-    matrix[0][2] = 2.0 * (xz + wy);
+    matrix[0][1] = 2.f * (xy - wz);
+    matrix[0][2] = 2.f * (xz + wy);
 
-    matrix[1][0] = 2.0 * (xy + wz);
+    matrix[1][0] = 2.f * (xy + wz);
     matrix[1][1] = w2 - x2 + y2 - z2;
-    matrix[1][2] = 2.0 * (yz - wx);
+    matrix[1][2] = 2.f * (yz - wx);
 
-    matrix[2][0] = 2.0 * (xz - wy);
-    matrix[2][1] = 2.0 * (yz + wx);
+    matrix[2][0] = 2.f * (xz - wy);
+    matrix[2][1] = 2.f * (yz + wx);
     matrix[2][2] = w2 - x2 - y2 + z2;
 
     return matrix;
@@ -349,8 +370,8 @@ inline quat matrixToQuaternion(const f3x3& matrix) {
     f trace = matrix.trace();
     f root;
 
-    if (trace > 0.0) {
-        root = std::sqrtf(trace + 1.0);
+    if (trace > 0.f) {
+        root = std::sqrtf(trace + 1.f);
         q.w = 0.5f * root;
         root = 0.5f / root;
         q.x = (matrix[2][1] - matrix[1][2]) * root;
@@ -369,7 +390,7 @@ inline quat matrixToQuaternion(const f3x3& matrix) {
         size_t j = next[i];
         size_t k = next[j];
 
-        root = std::sqrtf(matrix[i][i] - matrix[j][j] - matrix[k][k] + 1.0);
+        root = std::sqrtf(matrix[i][i] - matrix[j][j] - matrix[k][k] + 1.f);
         f* qArr[3] = { &q.x, &q.y, &q.z };
         *qArr[i] = 0.5f * root;
         root = 0.5f / root;
@@ -401,7 +422,7 @@ struct SimulationContext
     quat ComputeInitialAngularVelocity() const
     {
         const f mass = this->mass();
-        if (mass <= 0.0)
+        if (mass <= 0.f)
         {
             throw std::runtime_error("Null density is not allowed!");
         }
@@ -410,7 +431,7 @@ struct SimulationContext
 
         f3 angularVelocity = torque / mass;
 
-        return quat(0.0, angularVelocity[0], angularVelocity[1], angularVelocity[2]);
+        return quat(0.f, angularVelocity[0], angularVelocity[1], angularVelocity[2]);
     }
 };
 

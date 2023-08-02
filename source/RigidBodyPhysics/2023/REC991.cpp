@@ -3,11 +3,13 @@
 #include <GLFW/glfw3.h>
 #include <GL/glu.h>
 #include <cmath>
+#include <thread>
 
 namespace REC991
 {
 using namespace rigidbody;
-static constexpr float time_step = 1.e-2f;
+static constexpr f time_step = 1.e-2f;
+static constexpr f radToDeg = 180.f / M_PI;
 
 static GLFWwindow* GLwindow;
 
@@ -47,19 +49,32 @@ void GlobalTeardown()
 
 void drawCube(const quat& orientation, const rigidbody::f3& lengths)
 {
-    GLfloat x = lengths[0];
-    GLfloat y = lengths[1];
-    GLfloat z = lengths[2];
+    GLfloat x = lengths[0] * 0.5f;
+    GLfloat y = lengths[1] * 0.5f;
+    GLfloat z = lengths[2] * 0.5f;
+
+    const f3x3 rotMat = quaternionToMatrix(orientation);
+
+    f3 v[] =
+    {
+        f3(x,  y,  z), f3(x, -y,  z), f3(x,  -y,  -z), f3(x,  y,  -z), 
+        f3(-x,  y,  z), f3(-x,  -y,  z), f3(-x,  y, -z), f3(-x,  -y,  -z)
+    };
+
+    for (f3& vec : v)
+    {
+        vec = rotMat * vec;
+    }
 
     //init with initial pos
     GLfloat vertices[] =
     {
-        -x, -y, -z,   -x, -y,  z,   -x,  y,  z,   -x,  y, -z,
-         x, -y, -z,    x, -y,  z,    x,  y,  z,    x,  y, -z,
-        -x, -y, -z,   -x, -y,  z,    x, -y,  z,    x, -y, -z,
-        -x,  y, -z,   -x,  y,  z,    x,  y,  z,    x,  y, -z,
-        -x, -y, -z,   -x,  y, -z,    x,  y, -z,    x, -y, -z,
-        -x, -y,  z,   -x,  y,  z,    x,  y,  z,    x, -y,  z
+        v[7][0], v[7][1], v[7][2],    v[5][0], v[5][1], v[5][2],    v[4][0], v[4][1], v[4][2],    v[6][0], v[6][1], v[6][2],
+        v[2][0], v[2][1], v[2][2],    v[1][0], v[1][1], v[1][2],    v[0][0], v[0][1], v[0][2],    v[3][0], v[3][1], v[3][2],
+        v[7][0], v[7][1], v[7][2],    v[5][0], v[5][1], v[5][2],    v[1][0], v[1][1], v[1][2],    v[2][0], v[2][1], v[2][2],
+        v[6][0], v[6][1], v[6][2],    v[4][0], v[4][1], v[4][2],    v[0][0], v[0][1], v[0][2],    v[3][0], v[3][1], v[3][2],
+        v[7][0], v[7][1], v[7][2],    v[6][0], v[6][1], v[6][2],    v[3][0], v[3][1], v[3][2],    v[2][0], v[2][1], v[2][2],
+        v[5][0], v[5][1], v[5][2],    v[4][0], v[4][1], v[4][2],    v[0][0], v[0][1], v[0][2],    v[1][0], v[1][1], v[1][2]
     };
 
     GLfloat colors[] =
@@ -72,13 +87,13 @@ void drawCube(const quat& orientation, const rigidbody::f3& lengths)
         1, 1, 1,   1, 1, 1,   1, 1, 1,   1, 1, 1
     };
 
-    f alpha = 2 * acosf(orientation.w);
+    //f alpha = (2 * acosf(orientation.w))* radToDeg;
 
-    f sin_half_theta = sqrt(1.f - pow(orientation.w, 2));
-    if (sin_half_theta < 1.e-9)
-        glRotatef(alpha, 1, 0, 0);
-    else
-        glRotatef(alpha, orientation.x / sin_half_theta, orientation.y / sin_half_theta, orientation.z / sin_half_theta);
+    //f sin_half_theta = sqrt(1.f - pow(orientation.w, 2));
+    //if (sin_half_theta < 1.e-9)
+    //    glRotatef(alpha, 1.f, 0, 0);
+    //else
+    //    glRotatef(alpha, orientation.x / sin_half_theta, orientation.y / sin_half_theta, orientation.z / sin_half_theta);
 
     /* We have a color array and a vertex array */
     glEnableClientState(GL_VERTEX_ARRAY);
@@ -92,7 +107,13 @@ void drawCube(const quat& orientation, const rigidbody::f3& lengths)
     /* Cleanup states */
     glDisableClientState(GL_COLOR_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
-    alpha += 1;
+}
+
+void drawLine(const f3& direction) {
+    glBegin(GL_LINES);
+    glVertex3f(0.f, 0.f, 0.f); // Start point of the line
+    glVertex3f(direction[0] * 10.f, direction[1] * 10.f, direction[2] * 10.f);   // End point of the line
+    glEnd();
 }
 
 void display(const quat& orientation, const rigidbody::f3& lengths) {
@@ -113,6 +134,13 @@ void display(const quat& orientation, const rigidbody::f3& lengths) {
     glTranslatef(0, 0, -10);
     // Draw the cube
     drawCube(orientation, lengths);
+    const f3x3 rotMat = quaternionToMatrix(orientation).transpose();
+    glColor3f(1.0f, 0.0f, 0.0f);
+    drawLine(rotMat[0]);
+    glColor3f(0.0f, 1.0f, 0.0f);
+    drawLine(rotMat[1]);
+    glColor3f(0.0f, 0.0f, 1.0f);
+    drawLine(rotMat[2]);
 
     glfwSwapBuffers(GLwindow);
 }
@@ -150,7 +178,7 @@ rigidbody::f3x3 Simulate(rigidbody::SimulationContext const& context)
     std::cout << orientation << "\n";
     f3x3 final_orientation = quaternionToMatrix(orientation);
 
-    return final_orientation;
+    return final_orientation.transpose();
 }
 
 } // namespace REC991
