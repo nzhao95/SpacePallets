@@ -1,3 +1,9 @@
+<<<<<<< HEAD
 E:/REC991/nerd-exercises-REC991/source/RigidBodyPhysics/2023/REC991.cpp
 E:/REC991/nerd-exercises-REC991/source/RigidBodyPhysics/2023/REC991.h
 E:/REC991/nerd-exercises-REC991/source/RigidBodyPhysics/physicshelper.h
+=======
+E:/REC991/nerd-exercises-REC991/source/RigidBodyPhysics/2023/REC991.cpp
+E:/REC991/nerd-exercises-REC991/source/RigidBodyPhysics/2023/REC991.h
+E:/REC991/nerd-exercises-REC991/source/RigidBodyPhysics/physicshelper.h
+>>>>>>> 65dbe86 (Reorder stuff)
