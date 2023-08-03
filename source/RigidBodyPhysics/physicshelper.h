@@ -93,11 +93,7 @@ struct f3x3
 {
     f3 m[3];
 
-    f3x3() {
-        for (int i = 0; i < 3; ++i)
-            for (int j = 0; j < 3; ++j)
-                m[i][j] = 0;
-    }
+    f3x3() { f3(), f3(), f3(); }
 
     f3x3(f3 row0, f3 row1, f3 row2)
     {
@@ -127,13 +123,7 @@ struct f3x3
     {
         f3x3 result;
         for (int i = 0; i < 3; ++i)
-            for (int j = 0; j < 3; ++j)
-            {
-                f v = 0;
-                for (int k = 0; k < 3; ++k)
-                    v += m[i][k] * rhs.m[k][j];
-                result.m[i][j] = v;
-            }
+            result[i] = f3(m[0][i], m[1][i], m[2][i]) * rhs[i];
         return result;
     }
 
@@ -147,10 +137,7 @@ struct f3x3
         f3 result;
         for (int i = 0; i < 3; ++i)
         {
-            f v = 0;
-            for (int j = 0; j < 3; ++j)
-                v += m[i][j] * rhs.v[j];
-            result.v[i] = v;
+            result[i] = dot(m[i], rhs);
         }
         return result;
     }
@@ -343,7 +330,7 @@ inline f3x3 quaternionToMatrix(const quat& q) {
     {
         f3(1.0f - 2.0f * (q.y * q.y + q.z * q.z), 2.0f * (q.x * q.y - q.z * q.w), 2.0f * (q.x * q.z + q.y * q.w)),
         f3(2.0f * (q.x * q.y + q.z * q.w), 1.0f - 2.0f * (q.x * q.x + q.z * q.z), 2.0f * (q.y * q.z - q.x * q.w)),
-        f3(2.0f * (q.x * q.z + q.y * q.w), 2.0f * (q.y * q.z + q.x * q.w), 1.0f - 2.0f * (q.x * q.x + q.y * q.y))
+        f3(2.0f * (q.x * q.z - q.y * q.w), 2.0f * (q.y * q.z + q.x * q.w), 1.0f - 2.0f * (q.x * q.x + q.y * q.y))
     };
     return matrix;
 }
@@ -411,9 +398,9 @@ struct SimulationContext
             throw std::runtime_error("Null density is not allowed!");
         }
 
-        f3x3 invI{ f3(mass / 12.f * (pow(lengths[0], 2) + pow(lengths[2], 2)), 0.f, 0.f),
-                f3(0.f, mass / 12.f * (pow(lengths[0], 2) + pow(lengths[2], 2)), 0.f),
-                f3(0.f, 0.f, mass / 12.f * (pow(lengths[0], 2) + pow(lengths[2], 2))) };
+        f3x3 invI{ f3(12.f / (pow(lengths[0], 2) + pow(lengths[2], 2)* mass) , 0.f, 0.f),
+                f3(0.f, 12.f / (pow(lengths[0], 2) + pow(lengths[2], 2)* mass) , 0.f),
+                f3(0.f, 0.f, 12.f / (pow(lengths[0], 2) + pow(lengths[2], 2)* mass) ) };
         
         f3 torque = cross(initial_impulse_application_point, initial_impulse);
 

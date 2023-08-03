@@ -77,13 +77,13 @@ extern "C" int _tmain(int /* argc */, TCHAR** /* argv */)
             if (std::abs(diff) < simulation_epsilon)
             {
                 std::printf("OK:      Simulation %zd: Difference with reference %f\n", i, diff);
-                std::cout << matrixToQuaternion(reference_solutions[i]) << "\n";
                 std::cout << "Output is: \n" << result << "\nshould have been" << reference_solutions[i] << "\n";
             }
             else
             {
                 std::printf("TOO FAR: Simulation %zd: Difference with reference %f\n", i, diff);
-                std::cout << matrixToQuaternion(reference_solutions[i]) << "\n";
+                std::cout << " Quat result : " << matrixToQuaternion(result) << "\n";
+                std::cout << " Quat soluce : " << matrixToQuaternion(reference_solutions[i]) << "\n";
                 std::cout << "Output is : \n" << result << "\nshould have been : \n" << reference_solutions[i] << "\n";
             }
             

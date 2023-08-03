@@ -8,7 +8,7 @@
 namespace REC991
 {
 using namespace rigidbody;
-static constexpr f time_step = 1e-2f;
+static constexpr f time_step = 1e-4f;
 static constexpr f radToDeg = 180.f / M_PI;
 
 //#define draw //Draw is slow turn it on only for debug purposes
@@ -111,7 +111,6 @@ void display(const quat& orientation, const rigidbody::f3& lengths) {
     // Draw the cube
     drawCube(orientation, lengths);
     const f3x3 rotMat = quaternionToMatrix(orientation).transpose();
-    glColor3f(1.0f, 0.0f, 0.0f);
     drawLine(rotMat[0]);
     glColor3f(0.0f, 1.0f, 0.0f);
     drawLine(rotMat[1]);
@@ -185,7 +184,6 @@ rigidbody::f3x3 Simulate(rigidbody::SimulationContext const& context)
 #endif
     }
 
-    std::cout << orientation << "\n";
     f3x3 final_orientation = quaternionToMatrix(orientation);
 
     return final_orientation;
