@@ -307,6 +307,10 @@ struct quat {
         return 0.5f * angularVelocity *q;
     }
 
+    static quat quatIntegrationFirstOrder(const quat& q, const quat& angularVelocity, f dt) {
+        return (quat() + 0.5f * angularVelocity * dt) * q;
+    }
+
     // Function to apply angular acceleration over time using the Runge-Kutta method
     void applyAngularVelocity(const quat& angularVelocity, f dt)
     {
@@ -315,14 +319,15 @@ struct quat {
         quat& q = *this;
 
         // Update quat using the Runge-Kutta method (4th order)
-        quat k1 = quatDerivative(q, angularVelocity);
-        quat k2 = quatDerivative(q + 0.5f * k1, angularVelocity);
-        quat k3 = quatDerivative(q + 0.5f * k2, angularVelocity);
-        quat k4 = quatDerivative(q + k3, angularVelocity);
+        quat k1 = quatIntegrationFirstOrder(q, angularVelocity, dt);
+        //quat k2 = quatIntegrationFirstOrder(q + 0.5f * k1, angularVelocity);
+        //quat k3 = quatIntegrationFirstOrder(q + 0.5f * k2, angularVelocity);
+        //quat k4 = quatIntegrationFirstOrder(q + k3, angularVelocity);
 
-        q = q + (k1 + 2.f * k2 + 2.f * k3 + k4) * dt * asixth;
+        //q = q + (k1 + 2.f * k2 + 2.f * k3 + k4) * dt * asixth;
 
         // Normalize quaternion at each step to ensure it remains a unit quaternion
+        q += k1;
         q.normalize();
     }
 };
@@ -334,33 +339,12 @@ inline std::ostream& operator<<(std::ostream& os, const quat& quat) {
 
 // Function to convert a quaternion to the final matrix
 inline f3x3 quaternionToMatrix(const quat& q) {
-    f3x3 matrix;
-
-    // Calculate elements of the rotation matrix
-    f w2 = q.w * q.w;
-    f x2 = q.x * q.x;
-    f y2 = q.y * q.y;
-    f z2 = q.z * q.z;
-    f wx = q.w * q.x;
-    f wy = q.w * q.y;
-    f wz = q.w * q.z;
-    f xy = q.x * q.y;
-    f xz = q.x * q.z;
-    f yz = q.y * q.z;
-
-    // Set the elements of the rotation matrix
-    matrix[0][0] = w2 + x2 - y2 - z2;
-    matrix[0][1] = 2.f * (xy - wz);
-    matrix[0][2] = 2.f * (xz + wy);
-
-    matrix[1][0] = 2.f * (xy + wz);
-    matrix[1][1] = w2 - x2 + y2 - z2;
-    matrix[1][2] = 2.f * (yz - wx);
-
-    matrix[2][0] = 2.f * (xz - wy);
-    matrix[2][1] = 2.f * (yz + wx);
-    matrix[2][2] = w2 - x2 - y2 + z2;
-
+    f3x3 matrix
+    {
+        f3(1.0f - 2.0f * (q.y * q.y + q.z * q.z), 2.0f * (q.x * q.y - q.z * q.w), 2.0f * (q.x * q.z + q.y * q.w)),
+        f3(2.0f * (q.x * q.y + q.z * q.w), 1.0f - 2.0f * (q.x * q.x + q.z * q.z), 2.0f * (q.y * q.z - q.x * q.w)),
+        f3(2.0f * (q.x * q.z + q.y * q.w), 2.0f * (q.y * q.z + q.x * q.w), 1.0f - 2.0f * (q.x * q.x + q.y * q.y))
+    };
     return matrix;
 }
 // Function to convert a rotation matrix to 
@@ -427,9 +411,13 @@ struct SimulationContext
             throw std::runtime_error("Null density is not allowed!");
         }
 
+        f3x3 invI{ f3(mass / 12.f * (pow(lengths[0], 2) + pow(lengths[2], 2)), 0.f, 0.f),
+                f3(0.f, mass / 12.f * (pow(lengths[0], 2) + pow(lengths[2], 2)), 0.f),
+                f3(0.f, 0.f, mass / 12.f * (pow(lengths[0], 2) + pow(lengths[2], 2))) };
+        
         f3 torque = cross(initial_impulse_application_point, initial_impulse);
 
-        f3 angularVelocity = torque / mass;
+        f3 angularVelocity = invI * torque ;
 
         return quat(0.f, angularVelocity[0], angularVelocity[1], angularVelocity[2]);
     }

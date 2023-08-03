@@ -8,9 +8,11 @@
 namespace REC991
 {
 using namespace rigidbody;
-static constexpr f time_step = 1.e-2f;
+static constexpr f time_step = 1e-2f;
 static constexpr f radToDeg = 180.f / M_PI;
 
+//#define draw //Draw is slow turn it on only for debug purposes
+#ifdef draw
 static GLFWwindow* GLwindow;
 
 void reshape(int width, int height) {
@@ -20,32 +22,6 @@ void reshape(int width, int height) {
     gluPerspective(45.0, (double)width / (double)height, 1.0, 100.0);
 }
 
-void GlobalInit()
-{
-    /* Initialize the library */
-    if (!glfwInit())
-        return;
-
-    /* Create a windowed mode window and its OpenGL context */
-    GLwindow = glfwCreateWindow(640, 480, "Rigid Body", NULL, NULL);
-    if (!GLwindow)
-    {
-        glfwTerminate();
-        return;
-    }
-
-    /* Make the window's context current */
-    glfwMakeContextCurrent(GLwindow);
-    glEnable(GL_DEPTH_TEST);
-
-    glfwSetFramebufferSizeCallback(GLwindow, (GLFWframebuffersizefun)reshape);
-}
-
-void GlobalTeardown()
-{
-    glfwDestroyWindow(GLwindow);
-    glfwTerminate();
-}
 
 void drawCube(const quat& orientation, const rigidbody::f3& lengths)
 {
@@ -144,6 +120,38 @@ void display(const quat& orientation, const rigidbody::f3& lengths) {
 
     glfwSwapBuffers(GLwindow);
 }
+#endif //draw
+
+void GlobalInit()
+{
+#ifdef draw
+    /* Initialize the library */
+    if (!glfwInit())
+        return;
+
+    /* Create a windowed mode window and its OpenGL context */
+    GLwindow = glfwCreateWindow(640, 480, "Rigid Body", NULL, NULL);
+    if (!GLwindow)
+    {
+        glfwTerminate();
+        return;
+    }
+
+    /* Make the window's context current */
+    glfwMakeContextCurrent(GLwindow);
+    glEnable(GL_DEPTH_TEST);
+
+    glfwSetFramebufferSizeCallback(GLwindow, (GLFWframebuffersizefun)reshape);
+#endif
+}
+
+void GlobalTeardown()
+{
+#ifdef draw
+    glfwDestroyWindow(GLwindow);
+    glfwTerminate();
+#endif
+}
 
 rigidbody::f3x3 Simulate(rigidbody::SimulationContext const& context)
 {
@@ -168,17 +176,19 @@ rigidbody::f3x3 Simulate(rigidbody::SimulationContext const& context)
 
         currentTime += time_step;
 
+#ifdef draw
         if (GLwindow && !glfwWindowShouldClose(GLwindow)) {
 
             display(orientation, context.lengths);
             glfwPollEvents();
         }
+#endif
     }
 
     std::cout << orientation << "\n";
     f3x3 final_orientation = quaternionToMatrix(orientation);
 
-    return final_orientation.transpose();
+    return final_orientation;
 }
 
 } // namespace REC991

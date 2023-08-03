@@ -17,7 +17,7 @@
 
 namespace
 {
-static constexpr float simulation_epsilon = 1e-4f;
+static constexpr float simulation_epsilon = 1e-5f;
 
 using f3 = rigidbody::f3;
 
