@@ -8,10 +8,10 @@
 namespace REC991
 {
 using namespace rigidbody;
-static constexpr f time_step = 1e-4f;
+static constexpr f time_step = 1e-3f;
 static constexpr f radToDeg = 180.f / M_PI;
 
-//#define draw //Draw is slow turn it on only for debug purposes
+#define draw //Draw is slow turn it on only for debug purposes
 #ifdef draw
 static GLFWwindow* GLwindow;
 
@@ -23,13 +23,14 @@ void reshape(int width, int height) {
 }
 
 
-void drawCube(const quat& orientation, const rigidbody::f3& lengths)
+void drawCube(const f angle, const f3& axis, rigidbody::SimulationContext const& context)
 {
-    GLfloat x = lengths[0] * 0.5f;
-    GLfloat y = lengths[1] * 0.5f;
-    GLfloat z = lengths[2] * 0.5f;
+    GLfloat x = context.lengths[0] * 0.5f;
+    GLfloat y = context.lengths[1] * 0.5f;
+    GLfloat z = context.lengths[2] * 0.5f;
 
-    const f3x3 rotMat = quaternionToMatrix(orientation);
+    //const f3x3 rotMat = quaternionToMatrix(orientation);
+	const f3x3 rotMat = matrixFromAxisAngle(angle, axis);
 
     f3 v[] =
     {
@@ -63,13 +64,7 @@ void drawCube(const quat& orientation, const rigidbody::f3& lengths)
         1, 1, 1,   1, 1, 1,   1, 1, 1,   1, 1, 1
     };
 
-    //f alpha = (2 * acosf(orientation.w))* radToDeg;
-
-    //f sin_half_theta = sqrt(1.f - pow(orientation.w, 2));
-    //if (sin_half_theta < 1.e-9)
-    //    glRotatef(alpha, 1.f, 0, 0);
-    //else
-    //    glRotatef(alpha, orientation.x / sin_half_theta, orientation.y / sin_half_theta, orientation.z / sin_half_theta);
+	//glRotatef(angle, axis.x, axis.y, axis.z);
 
     /* We have a color array and a vertex array */
     glEnableClientState(GL_VERTEX_ARRAY);
@@ -85,14 +80,14 @@ void drawCube(const quat& orientation, const rigidbody::f3& lengths)
     glDisableClientState(GL_VERTEX_ARRAY);
 }
 
-void drawLine(const f3& direction) {
+void drawLine(const f3& direction, const f3& origin = f3(0.f, 0.f, 0.f)) {
     glBegin(GL_LINES);
     glVertex3f(0.f, 0.f, 0.f); // Start point of the line
-    glVertex3f(direction[0] * 10.f, direction[1] * 10.f, direction[2] * 10.f);   // End point of the line
+    glVertex3f(direction[0], direction[1], direction[2]);   // End point of the line
     glEnd();
 }
 
-void display(const quat& orientation, const rigidbody::f3& lengths) {
+void display(const f angle, const f3& axis, rigidbody::SimulationContext const& context) {
     // Scale to window size
     GLint windowWidth, windowHeight;
     glfwGetWindowSize(GLwindow, &windowWidth, &windowHeight);
@@ -109,13 +104,18 @@ void display(const quat& orientation, const rigidbody::f3& lengths) {
     glMatrixMode(GL_MODELVIEW_MATRIX);
     glTranslatef(0, 0, -10);
     // Draw the cube
-    drawCube(orientation, lengths);
-    const f3x3 rotMat = quaternionToMatrix(orientation).transpose();
-    drawLine(rotMat[0]);
-    glColor3f(0.0f, 1.0f, 0.0f);
-    drawLine(rotMat[1]);
-    glColor3f(0.0f, 0.0f, 1.0f);
-    drawLine(rotMat[2]);
+    drawCube(angle, axis, context);
+
+	glColor3f(0.0f, 1.0f, 0.0f);
+    drawLine( context.initial_impulse_application_point - context.initial_impulse, context.initial_impulse_application_point);
+
+	const f3x3 rotMat = matrixFromAxisAngle(angle, axis).transpose();
+
+	glColor3f(1.0f, 0.0f, 0.0f);
+	drawLine(rotMat * f3(1,0,0));
+
+	glColor3f(1.0f, 1.0f, 0.0f);
+	drawLine(rotMat[0] *(context.lengths[0] + 1.f));
 
     glfwSwapBuffers(GLwindow);
 }
@@ -164,27 +164,30 @@ rigidbody::f3x3 Simulate(rigidbody::SimulationContext const& context)
     const f3& direction = context.initial_impulse_application_point;
 
     const f final_time = context.final_time;
+	const quat angular_velocity = context.ComputeInitialAngularVelocity();
 
-    f current_time = 0.f;
-    quat orientation;
-    const quat angular_velocity = context.ComputeInitialAngularVelocity();
+	const f3 axis = f3(angular_velocity.x, angular_velocity.y, angular_velocity.z);
 
-    f currentTime = 0.0;
-    while (currentTime < final_time) {
-        orientation.applyAngularVelocity(angular_velocity, time_step);
-
-        currentTime += time_step;
-
+	const f angle_mag = axis.norm();
+	const f3 axisNormed = axis / angle_mag;
 #ifdef draw
-        if (GLwindow && !glfwWindowShouldClose(GLwindow)) {
+    f current_time = 0.f;
+	while (current_time < final_time)
+	{
+		const f angle = angle_mag * current_time;
+		display(angle, axisNormed, context);
+		current_time += time_step;
 
-            display(orientation, context.lengths);
-            glfwPollEvents();
-        }
+	}
 #endif
-    }
+	const f final_ang = angle_mag * final_time;
+	//const quat identity_quat;
+	//quat final_quat = quat::quatIntegrationFirstOrder(identity_quat, angular_velocity, final_time);
+	//
+	//final_quat.normalize();
 
-    f3x3 final_orientation = quaternionToMatrix(orientation);
+    f3x3 final_orientation = matrixFromAxisAngle(final_ang, axisNormed);
+	//f3x3 final_orientation = quaternionToMatrix(final_quat).transpose();
 
     return final_orientation;
 }

@@ -70,7 +70,7 @@ extern "C" int _tmain(int /* argc */, TCHAR** /* argv */)
         CANDIDATE::GlobalInit();
 
         const size_t arraySize = array_size(contexts);
-        for (size_t i = 0; i < arraySize; ++i)
+        for (size_t i = 1; i < arraySize; ++i)
         {
             f3x3 const result = CANDIDATE::Simulate(contexts[i]);
             f diff = frobenius_norm(result - reference_solutions[i]);

@@ -66,6 +66,11 @@ struct f3
     {
         return v[a];
     }
+
+	f norm() const
+	{
+		return std::sqrtf(x * x + y * y + z * z);
+	}
 };
 
 // Stream insertion for printing
@@ -295,8 +300,16 @@ struct quat {
     }
 
     static quat quatIntegrationFirstOrder(const quat& q, const quat& angularVelocity, f dt) {
-        return (quat() + 0.5f * angularVelocity * dt) * q;
+        return (q + angularVelocity) * 0.5f * dt * q;
     }
+
+	quat quaternionPow(double exponent) const {
+		double angle = std::acos(w);
+		double newAngle = angle * exponent;
+		double scale = std::sin(newAngle) / std::sin(angle);
+
+		return quat(std::cos(newAngle), x * scale, y * scale, z * scale);
+	}
 
     // Function to apply angular acceleration over time using the Runge-Kutta method
     void applyAngularVelocity(const quat& angularVelocity, f dt)
@@ -305,19 +318,26 @@ struct quat {
 
         quat& q = *this;
 
-        // Update quat using the Runge-Kutta method (4th order)
-        quat k1 = quatIntegrationFirstOrder(q, angularVelocity, dt);
-        //quat k2 = quatIntegrationFirstOrder(q + 0.5f * k1, angularVelocity);
-        //quat k3 = quatIntegrationFirstOrder(q + 0.5f * k2, angularVelocity);
-        //quat k4 = quatIntegrationFirstOrder(q + k3, angularVelocity);
-
-        //q = q + (k1 + 2.f * k2 + 2.f * k3 + k4) * dt * asixth;
-
-        // Normalize quaternion at each step to ensure it remains a unit quaternion
-        q += k1;
+        q = q + q * angularVelocity * dt;
         q.normalize();
     }
 };
+
+inline quat angleAxisToQuaternion(f angle, const f3& dir) {
+
+	// Convert the angle to radians
+	f theta = angle;
+
+	// Calculate the quaternion components
+	f cosHalfTheta = std::cos(theta / 2);
+	f sinHalfTheta = std::sin(theta / 2);
+	f qx = sinHalfTheta * dir[0];
+	f qy = sinHalfTheta * dir[1];
+	f qz = sinHalfTheta * dir[2];
+	f qw = cosHalfTheta;
+
+	return quat(qw, qx, qy, qz);
+}
 
 inline std::ostream& operator<<(std::ostream& os, const quat& quat) {
     os << quat.w << " + " << quat.x << "i + " << quat.y << "j + " << quat.z << "k";
@@ -373,6 +393,33 @@ inline quat matrixToQuaternion(const f3x3& matrix) {
     return q;
 }
 
+inline f3x3 matrixFromAxisAngle(f angle, f3 axis) {
+
+	const f cosinus = cos(angle);
+	const f sinus = sin(angle);
+	const f t = 1.0 - cosinus;
+
+	f3x3 mat;
+	mat[0][0] = cosinus + axis[0]*axis[0]*t;
+	mat[1][1] = cosinus + axis[1]*axis[1]*t;
+	mat[2][2] = cosinus + axis[2]*axis[2]*t;
+
+
+	const f v0 = axis[0]*axis[1]*t;
+	const f v1 = axis[2]*sinus;
+	const f v2 = axis[0] * axis[2] * t;
+	const f v3 = axis[1] * sinus;
+	const f v4 = axis[1] * axis[2] * t;
+	const f v5 = axis[0] * sinus;
+
+	mat[1][0] = v0 + v1;
+	mat[0][1] = v0 - v1;
+	mat[2][0] = v2 - v3;
+	mat[0][2] = v2 + v3;    
+	mat[2][1] = v4 + v5;
+	mat[1][2] = v4 - v5;
+	return mat;
+}
 
 // *****************************************************************************
 
@@ -398,9 +445,9 @@ struct SimulationContext
             throw std::runtime_error("Null density is not allowed!");
         }
 
-        f3x3 invI{ f3(12.f / (pow(lengths[0], 2) + pow(lengths[2], 2)* mass) , 0.f, 0.f),
-                f3(0.f, 12.f / (pow(lengths[0], 2) + pow(lengths[2], 2)* mass) , 0.f),
-                f3(0.f, 0.f, 12.f / (pow(lengths[0], 2) + pow(lengths[2], 2)* mass) ) };
+        f3x3 invI{ f3(12.f / (pow(lengths[1], 2) + pow(lengths[2], 2)* mass) , 0.f, 0.f),
+                   f3(0.f, 12.f / (pow(lengths[0], 2) + pow(lengths[2], 2)* mass) , 0.f),
+                   f3(0.f, 0.f, 12.f / (pow(lengths[0], 2) + pow(lengths[1], 2)* mass) ) };
         
         f3 torque = cross(initial_impulse_application_point, initial_impulse);
 
