@@ -77,10 +77,12 @@ extern "C" int _tmain(int /* argc */, TCHAR** /* argv */)
             if (std::abs(diff) < simulation_epsilon)
             {
                 std::printf("OK:      Simulation %zd: Difference with reference %f\n", i, diff);
+                std::cout << "Output is : \n" << result << "\nshould have been : \n" << reference_solutions[i] << "\n";
             }
             else
             {
                 std::printf("TOO FAR: Simulation %zd: Difference with reference %f\n", i, diff);
+                std::cout << "Output is : \n" << result << "\nshould have been : \n" << reference_solutions[i] << "\n";
             }
             
 #ifdef HAVE_CHECK

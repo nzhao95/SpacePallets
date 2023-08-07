@@ -28,24 +28,43 @@ rigidbody::f3x3 Simulate(rigidbody::SimulationContext const& context)
     using namespace rigidbody;
 
     const f final_time = context.final_time;
-	const f3 angular_velocity = context.ComputeInitialAngularVelocity();
+	f3 angular_velocity = context.ComputeInitialAngularVelocity();
 
-	const f3 axis = f3(angular_velocity.x, angular_velocity.y, angular_velocity.z);
-    const f angle_mag = axis.norm();
-    const f3 axisNormed = axis.normalized();
+    //f3x3 orientation{ f3x3::id() };
+    quat orientation;
 
-    if (shouldDraw)
+	f3 axis = f3(angular_velocity.x, angular_velocity.y, angular_velocity.z);
+    f angle = axis.norm();
+    f3 direction = axis.normalized();
+
+    quat rotQuat = angleAxisToQuaternion(angle * time_step, direction);
+
+
+    f current_time = 0.f;
+
+    while (current_time < final_time)
     {
-        f current_time = 0.f;
+        //f3 angular_velocity = context.ComputeInitialAngularVelocity();
 
-        while (current_time < final_time)
+        //const f3 axis = f3(angular_velocity.x, angular_velocity.y, angular_velocity.z);
+        //const f angle_mag = axis.norm();
+        //const f3 axisNormed = axis.normalized();
+        //const f3x3 W = velocityTensor(angular_velocity);
+
+        orientation.applyRotationStep(angular_velocity, time_step);
+        quaternionToAxisAngle(orientation, angle, direction);
+
+        if (shouldDraw)
         {
-            draw::display(context, angle_mag * current_time, axisNormed);
-            current_time += time_step;
+            draw::display(context, angle, direction);
         }
+
+        current_time += time_step;
     }
 
-    return matrixFromAxisAngle(angle_mag * final_time, axisNormed);
+    //return orientation;
+    return quaternionToMatrix(orientation.normalized());
+    //return matrixFromAxisAngle(angle_mag * final_time, axisNormed);
 }
 
 } // namespace REC991
