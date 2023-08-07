@@ -407,13 +407,12 @@ struct quat {
     }
 
     void applyRotationStep(const f3& angularVelocity, f dt) {
+		const f angle = angularVelocity.norm();
+		const f3 axis = angularVelocity / angle;
         quat& orientation = *this;
-        quat k1 = computeOrientationDerivative(orientation, angularVelocity);
-        quat k2 = computeOrientationDerivative(orientation + 0.5 * dt * k1, angularVelocity);
-        quat k3 = computeOrientationDerivative(orientation + 0.5 * dt * k2, angularVelocity);
-        quat k4 = computeOrientationDerivative(orientation + dt * k3, angularVelocity);
+		const f theta = angle * dt * 0.5f;
 
-        orientation = orientation + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4);
+        orientation = (quat(cos(theta), 0.f, 0.f, 0.f) + sin(theta) * quat(0.f, axis)) * orientation;
         orientation.normalize();
     }
 };
@@ -520,51 +519,55 @@ struct SimulationContext
     f3 initial_impulse_application_point{}; // Point on the body where the impulse is applied
 
     f final_time;                           // Final time of the simulation
+	
+	f mass() const
+	{
+		return lengths[0] * lengths[1] * lengths[2] * density;
+	}
 
-    f mass() const
-    {
-        return lengths[0] * lengths[1] * lengths[2] * density;
-    }
+	f3x3 ComputeInertiaTensor() const
+	{
+		const f mass = this->mass();
+		return f3x3{ f3((powf(lengths[1], 2) + powf(lengths[2], 2))* mass / 12.f , 0.f, 0.f),
+			f3(0.f, (powf(lengths[0], 2) + powf(lengths[2], 2))* mass / 12.f , 0.f),
+			f3(0.f, 0.f, (powf(lengths[0], 2) + powf(lengths[1], 2))* mass / 12.f) };
+	}
 
-    f3 ComputeInitialAngularVelocity() const
+	f3x3 ComputeInvInertiaTensor() const
+	{
+		const f mass = this->mass();
+		if (mass <= 0.f)
+		{
+			throw std::runtime_error("Null density is not allowed!");
+		}
+
+		return f3x3{ f3(12.f / (powf(lengths[1], 2) + powf(lengths[2], 2)* mass) , 0.f, 0.f),
+			f3(0.f, 12.f / (powf(lengths[0], 2) + powf(lengths[2], 2)* mass) , 0.f),
+			f3(0.f, 0.f, 12.f / (powf(lengths[0], 2) + powf(lengths[1], 2)* mass)) };
+	}
+
+    f3 ComputeInitialAngularVelocity(const f3x3& invInertiaTensor) const
     {
         const f mass = this->mass();
         if (mass <= 0.f)
         {
             throw std::runtime_error("Null density is not allowed!");
         }
-
-        f3x3 invI{ f3(12.f / (powf(lengths[1], 2) + powf(lengths[2], 2)* mass) , 0.f, 0.f),
-                   f3(0.f, 12.f / (powf(lengths[0], 2) + powf(lengths[2], 2)* mass) , 0.f),
-                   f3(0.f, 0.f, 12.f / (powf(lengths[0], 2) + powf(lengths[1], 2)* mass) ) };
         
         f3 torque = cross(initial_impulse_application_point, initial_impulse);
 
-        f3 angularVelocity = invI * torque ;
-
-        return angularVelocity;
+        return invInertiaTensor * torque;
     }
 
-    f3 ComputeAngularVelocity(const f3x3& rotMat) const
+	//a*dw/dt + (b - c) * wa*wb = 0
+	f3 ComputeAngularAcceleration(const f3x3& inertiaTensor, const f3x3& invInertiaTensor, const f3& w) const
+	{
+		return invInertiaTensor * cross(w, inertiaTensor * w) * (-1.f);
+	}
+
+    f3 UpdateAngularVelocity(const f3x3& inertiaTensor, const f3x3& invInertiaTensor, const f3& w, const f dt) const
     {
-        const f mass = this->mass();
-        if (mass <= 0.f)
-        {
-            throw std::runtime_error("Null density is not allowed!");
-        }
-
-        f3x3 I  { f3(powf(lengths[1], 2) + powf(lengths[2], 2) * mass / 12.f , 0.f, 0.f),
-                   f3(0.f, powf(lengths[0], 2) + powf(lengths[2], 2) * mass / 12.f  , 0.f),
-                   f3(0.f, 0.f, powf(lengths[0], 2) + powf(lengths[1], 2) * mass / 12.f) };
-        I = rotMat * I;
-        f3x3 invI;
-        bool success = I.inverse(invI);
-
-        f3 torque = cross(initial_impulse_application_point, initial_impulse);
-
-        f3 angularVelocity = invI * torque;
-
-        return angularVelocity;
+        return w + ComputeAngularAcceleration(inertiaTensor, invInertiaTensor, w) * dt;
     }
 };
 

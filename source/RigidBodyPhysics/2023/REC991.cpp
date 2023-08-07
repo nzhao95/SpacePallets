@@ -6,7 +6,7 @@
 namespace REC991
 {
 using namespace rigidbody;
-static constexpr f time_step = 1e-2f;
+static constexpr f time_step = 1e-3f;
 static bool shouldDraw = false;
 
 void GlobalInit()
@@ -28,7 +28,9 @@ rigidbody::f3x3 Simulate(rigidbody::SimulationContext const& context)
     using namespace rigidbody;
 
     const f final_time = context.final_time;
-	f3 angular_velocity = context.ComputeInitialAngularVelocity();
+	const f3x3& I = context.ComputeInertiaTensor();
+	const f3x3& invI = context.ComputeInvInertiaTensor();
+	f3 angular_velocity = context.ComputeInitialAngularVelocity(invI);
 
     //f3x3 orientation{ f3x3::id() };
     quat orientation;
@@ -44,7 +46,7 @@ rigidbody::f3x3 Simulate(rigidbody::SimulationContext const& context)
 
     while (current_time < final_time)
     {
-        //f3 angular_velocity = context.ComputeInitialAngularVelocity();
+        angular_velocity = context.UpdateAngularVelocity(I, invI, angular_velocity, time_step);
 
         //const f3 axis = f3(angular_velocity.x, angular_velocity.y, angular_velocity.z);
         //const f angle_mag = axis.norm();
@@ -52,8 +54,10 @@ rigidbody::f3x3 Simulate(rigidbody::SimulationContext const& context)
         //const f3x3 W = velocityTensor(angular_velocity);
 
         orientation.applyRotationStep(angular_velocity, time_step);
+		f prevAngle = angle;
         quaternionToAxisAngle(orientation, angle, direction);
 
+		//std::cout << angle - prevAngle << " vs. " << axis.norm() * time_step << "\n"; 
         if (shouldDraw)
         {
             draw::display(context, angle, direction);
