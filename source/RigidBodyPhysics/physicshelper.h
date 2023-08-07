@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <iostream>
+#include <algorithm>
 
 namespace rigidbody
 {
@@ -243,6 +244,12 @@ struct quat {
         z = z * invNorm;
     }
 
+    quat normalized() const {
+        quat result;
+        const f invNorm = 1.f / this->norm();
+        return quat(w* invNorm, x* invNorm, y* invNorm, z* invNorm);
+    }
+
     void operator+=(const quat& rhs) {
         w += rhs.w;
         x += rhs.x;
@@ -303,7 +310,7 @@ struct quat {
         return (q + angularVelocity) * 0.5f * dt * q;
     }
 
-	quat quaternionPow(double exponent) const {
+	quat quaternionPow(f exponent) const {
 		double angle = std::acos(w);
 		double newAngle = angle * exponent;
 		double scale = std::sin(newAngle) / std::sin(angle);
@@ -314,11 +321,10 @@ struct quat {
     // Function to apply angular acceleration over time using the Runge-Kutta method
     void applyAngularVelocity(const quat& angularVelocity, f dt)
     {
-        constexpr f asixth = 1.f / 6.f;
-
         quat& q = *this;
+        const quat id;
 
-        q = q + q * angularVelocity * dt;
+        q = q * angularVelocity.quaternionPow(dt);
         q.normalize();
     }
 };
@@ -354,6 +360,30 @@ inline f3x3 quaternionToMatrix(const quat& q) {
     };
     return matrix;
 }
+
+// Function to compute rotation axis from a unit quaternion
+inline void quaternionToAxisAngle(const quat& q, f& angle, f3& axis) {
+    // Ensure the quat is normalized
+    quat normalized_q = q.normalized();
+
+    // Calculate the rotation angle
+    angle = 2 * std::acos(normalized_q.w);
+
+    // Compute the rotation axis
+    double sin_half_angle = std::sqrt(1.0 - normalized_q.w * normalized_q.w);
+    if (sin_half_angle < 0.0001) {
+        // Handle the case of small or zero angle to avoid division by zero
+        axis.x = 1.0;
+        axis.y = 0.0;
+        axis.z = 0.0;
+    }
+    else {
+        axis.x = normalized_q.x / sin_half_angle;
+        axis.y = normalized_q.y / sin_half_angle;
+        axis.z = normalized_q.z / sin_half_angle;
+    }
+}
+
 // Function to convert a rotation matrix to 
 inline quat matrixToQuaternion(const f3x3& matrix) {
     quat q;
@@ -446,7 +476,7 @@ struct SimulationContext
         }
 
         f3x3 invI{ f3(12.f / (pow(lengths[1], 2) + pow(lengths[2], 2)* mass) , 0.f, 0.f),
-                   f3(0.f, 12.f / (pow(lengths[0], 2) + pow(lengths[2], 2)* mass) , 0.f),
+                   f3(0.f, 12.f / (pow(lengths[0], 2) + pow(lengths[2], 2)* mass) , 0.f), 
                    f3(0.f, 0.f, 12.f / (pow(lengths[0], 2) + pow(lengths[1], 2)* mass) ) };
         
         f3 torque = cross(initial_impulse_application_point, initial_impulse);
