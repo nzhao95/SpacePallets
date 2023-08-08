@@ -32,8 +32,9 @@ rigidbody::f3x3 Simulate(rigidbody::SimulationContext const& context)
 	const f3x3& invI = context.ComputeInvInertiaTensor();
 	f3 angular_velocity = context.ComputeInitialAngularVelocity(invI);
 
+    f3 orientation;
     //f3x3 orientation{ f3x3::id() };
-    quat orientation;
+    //quat orientation;
 
 	f3 axis = f3(angular_velocity.x, angular_velocity.y, angular_velocity.z);
     f angle = axis.norm();
@@ -44,30 +45,30 @@ rigidbody::f3x3 Simulate(rigidbody::SimulationContext const& context)
 
     f current_time = 0.f;
 
-    while (current_time < final_time)
-    {
-        angular_velocity = context.UpdateAngularVelocity(I, invI, angular_velocity, time_step);
+  //  while (current_time < final_time)
+  //  {
+  //      //const f3 axis = f3(angular_velocity.x, angular_velocity.y, angular_velocity.z);
+  //      //const f angle_mag = axis.norm();
+  //      //const f3 axisNormed = axis.normalized();
+  //      //const f3x3 W = velocityTensor(angular_velocity);
 
-        //const f3 axis = f3(angular_velocity.x, angular_velocity.y, angular_velocity.z);
-        //const f angle_mag = axis.norm();
-        //const f3 axisNormed = axis.normalized();
-        //const f3x3 W = velocityTensor(angular_velocity);
+  //      orientation.applyRotationStep(angular_velocity, time_step);
+		////f prevAngle = angle;
+  //      
+  //      //quaternionToAxisAngle(orientation, angle, direction);
+  //      angular_velocity = context.UpdateAngularVelocity(I, angular_velocity, time_step);
 
-        orientation.applyRotationStep(angular_velocity, time_step);
-		f prevAngle = angle;
-        quaternionToAxisAngle(orientation, angle, direction);
+		////std::cout << angle - prevAngle << " vs. " << axis.norm() * time_step << "\n"; 
+  //      if (shouldDraw)
+  //      {
+  //          draw::display(context, angle, direction);
+  //      }
 
-		//std::cout << angle - prevAngle << " vs. " << axis.norm() * time_step << "\n"; 
-        if (shouldDraw)
-        {
-            draw::display(context, angle, direction);
-        }
-
-        current_time += time_step;
-    }
-
-    //return orientation;
-    return quaternionToMatrix(orientation.normalized());
+  //      current_time += time_step;
+  //  }
+    orientation.applyRotationStep(angular_velocity, final_time);
+    return eulerAngleToMatrix(orientation).transpose();
+    //return quaternionToMatrix(orientation.normalized());
     //return matrixFromAxisAngle(angle_mag * final_time, axisNormed);
 }
 
