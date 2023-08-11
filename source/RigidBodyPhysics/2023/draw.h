@@ -1,6 +1,7 @@
 #pragma once
 
 #include "physicshelper.h"
+#include <vector>
 
 namespace draw
 {
@@ -12,9 +13,9 @@ void Init();
 
 void End();
 
-void drawCube(const f angle, const f3& axis, rigidbody::SimulationContext const& context);
+void drawCube(const SimulationContext& context, const f3x3& rotMat);
 
-void drawLine(const f3& direction, const f3& origin = f3(0.f, 0.f, 0.f));
+void drawLine(const f3& direction, const f3& origin = f3());
 
-void display(const rigidbody::SimulationContext& context, const f angle, const f3& axis);
+void display(const SimulationContext& context, const f3x3& rotMat, const std::vector<f3>& angularVelocities);
 }

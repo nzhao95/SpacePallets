@@ -44,13 +44,11 @@ namespace draw
         glfwTerminate();
     }
 
-    void drawCube(const f angle, const f3& axis, rigidbody::SimulationContext const& context)
+    void drawCube(rigidbody::SimulationContext const& context, const f3x3& rotMat)
     {
-        GLfloat x = context.lengths[0] * 0.5f;
-        GLfloat y = context.lengths[1] * 0.5f;
-        GLfloat z = context.lengths[2] * 0.5f;
-
-        const f3x3 rotMat = matrixFromAxisAngle(angle, axis);
+        GLdouble x = context.lengths[0] * 0.5f;
+        GLdouble y = context.lengths[1] * 0.5f;
+        GLdouble z = context.lengths[2] * 0.5f;
 
         f3 v[] =
         {
@@ -64,7 +62,7 @@ namespace draw
         }
 
         //init with initial pos
-        GLfloat vertices[] =
+        GLdouble vertices[] =
         {
             v[7][0], v[7][1], v[7][2],    v[5][0], v[5][1], v[5][2],    v[4][0], v[4][1], v[4][2],    v[6][0], v[6][1], v[6][2],
             v[2][0], v[2][1], v[2][2],    v[1][0], v[1][1], v[1][2],    v[0][0], v[0][1], v[0][2],    v[3][0], v[3][1], v[3][2],
@@ -74,7 +72,7 @@ namespace draw
             v[5][0], v[5][1], v[5][2],    v[4][0], v[4][1], v[4][2],    v[0][0], v[0][1], v[0][2],    v[1][0], v[1][1], v[1][2]
         };
 
-        GLfloat colors[] =
+        GLdouble colors[] =
         {
             1, 0, 0,    1, 0, 0,    1, 0, 0,    1, 0, 0,
             1, 1, 0,    1, 1, 0,    1, 1, 0,    1, 1, 0,
@@ -89,8 +87,8 @@ namespace draw
         /* We have a color array and a vertex array */
         glEnableClientState(GL_VERTEX_ARRAY);
         glEnableClientState(GL_COLOR_ARRAY);
-        glVertexPointer(3, GL_FLOAT, 0, vertices);
-        glColorPointer(3, GL_FLOAT, 0, colors);
+        glVertexPointer(3, GL_DOUBLE, 0, vertices);
+        glColorPointer(3, GL_DOUBLE, 0, colors);
 
         /* Send data : 24 vertices */
         glDrawArrays(GL_QUADS, 0, 24);
@@ -101,15 +99,13 @@ namespace draw
     }
 
     void drawLine(const f3& direction, const f3& origin) {
-        glDisable(GL_DEPTH_TEST);
         glBegin(GL_LINES);
         glVertex3f(origin[0], origin[1], origin[2]); // Start point of the line
         glVertex3f(direction[0], direction[1], direction[2]);   // End point of the line
         glEnd();
-        glEnable(GL_DEPTH_TEST);
     }
 
-    void display(const SimulationContext& context, const f angle, const f3& axis) {
+    void display(const SimulationContext& context, const f3x3& rotMat, const std::vector<f3>& angularVelocities) {
 
         GLint windowX, windowY;
         glfwGetWindowSize(GLwindow, &windowX, &windowY);
@@ -127,18 +123,38 @@ namespace draw
         glTranslatef(0, 0, -10);
         glRotatef(20, 0, 1, 0);
         // Draw the cube
-        drawCube(angle, axis, context);
+        drawCube(context, rotMat);
+
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         glColor3f(0.0f, 1.0f, 0.0f);
-        drawLine(context.initial_impulse_application_point - context.initial_impulse, context.initial_impulse_application_point);
-
-        const f3x3 rotMat = matrixFromAxisAngle(angle, axis).transpose();
+        drawLine(cross(context.initial_impulse_application_point, context.initial_impulse));
 
         glColor3f(1.0f, 1.0f, 0.0f);
-        drawLine(rotMat[0] * (context.lengths[0] + 1.f));
+        drawLine(rotMat * f3(1.0, 0.0, 0.0) * (context.lengths[0] + 1.f));
+
+        size_t s = angularVelocities.size();
 
         glColor3f(1.0f, 0.0f, 0.0f);
-        drawLine(axis * 5.f);
+        drawLine(angularVelocities[s - 1]);
+
+        glEnable(GL_DEPTH_TEST);
+        for (size_t i = 1; i < s; i++)
+        {
+            glBegin(GL_TRIANGLES);
+            glColor4f(0.5f, 1.0f, 0.0f, 0.2f);
+            glVertex3f(angularVelocities[i - 1][0], angularVelocities[i - 1][1], angularVelocities[i - 1][2]);
+            glColor4f(0.5f, 1.0f, 0.0f, 0.5f);
+            glVertex3f(0.0, 0.0, 0.0);
+            glColor4f(0.5f, 1.0f, 0.0f, 0.2f);
+            glVertex3f(angularVelocities[i][0], angularVelocities[i][1], angularVelocities[i][2]);
+            glEnd();
+        }
+
+        //glColor3f(1.0f, 0.0f, 0.0f);
+        //drawLine(axis * 5.f);
 
         glfwSwapBuffers(GLwindow);
     }

@@ -12,7 +12,7 @@ namespace rigidbody
 #pragma warning(disable : 4201)
 #endif
 
-using f = float;
+using f = double;
 
 struct f3
 {
@@ -25,7 +25,7 @@ struct f3
         f v[3];
     };
 
-    f3() : v{ 0.f, 0.f, 0.f } {}
+    f3() : v{ 0.0, 0.0, 0.0 } {}
     f3(f x, f y, f z) : v{ x, y, z } {}
     f3(f const v[3]) : v{ v[0], v[1], v[2] } {}
 
@@ -45,13 +45,14 @@ struct f3
     {
         return v[0] == rhs[0] && v[1] == rhs[1] && v[2] == rhs[2];
     }
+
     f3 operator*(f scal) const
     {
         return f3(scal * x, scal * y, scal * z);
     }
     f3 operator/(f scal) const
     {
-        if (scal == 0.f)
+        if (scal == 0.0)
         {
             throw std::runtime_error("Division by zero");
         }
@@ -77,7 +78,7 @@ struct f3
 
 	f norm() const
 	{
-		return std::sqrtf(x * x + y * y + z * z);
+		return std::sqrt(x * x + y * y + z * z);
 	}
 
     f3 normalized() const
@@ -91,21 +92,36 @@ struct f3
         *this = *this/this->norm();
     }
 
+    void mod(f scal)
+    {
+        x = fmod(x, scal);
+        x = fmod(x, scal);
+        x = fmod(x, scal);
+    }
+
     f3 getRotationDerivative(const f3& w)
     {
-        f cpitch = std::cos(y);
-        f tpitch = std::tan(y);
-        f sroll = std::sin(z);
-        f croll = std::cos(z);
-        return f3{ w[0] + (w[1] * sroll + w[1] * croll) * tpitch,
-                    w[1] * croll - w[2] * sroll,
-                    (w[1] * sroll + w[2] * croll) / cpitch };
+        const f cpsi = std::cos(z);
+        const f spsi = std::sin(z);
+        const f ctheta = std::cos(y);
+        if (y < 1e-5f)
+        {
+            return f3{ 0.0,w[0] * cpsi - w[1] * spsi, 0.0 };
+        }
+        const f stheta = std::sin(y);
+        const f ttheta = std::tan(y);
+
+        return f3{ (w[0] * spsi + w[1] * cpsi) / stheta,
+                    w[0] * cpsi - w[1] * spsi,
+                  (-w[0] * spsi - w[1] * cpsi) / ttheta + w[2] };
     }
 
     void applyRotationStep(const f3& angularVelocity, const f dt)
     {
+        f3 k1 = getRotationDerivative(angularVelocity);
+
         f3& orientation = *this;
-        orientation = orientation + getRotationDerivative(angularVelocity) * dt;
+        orientation = orientation + k1 * dt;
     }
 };
 
@@ -189,7 +205,7 @@ struct f3x3
     {
         f3x3 result;
         for (int i = 0; i < 3; ++i)
-            result.m[i][i] = 1.f;
+            result.m[i][i] = 1.0;
         return result;
     }
 
@@ -206,7 +222,7 @@ struct f3x3
         f3x3 result;
         for (int i = 0; i < 3; ++i)
             for (int j = 0; j < 3; ++j)
-                result.m[i][j] = 0.f;
+                result.m[i][j] = 0.0;
         return result;
     }
 
@@ -289,16 +305,16 @@ inline f3x3 operator*(f scal, f3x3 m)
 
 inline f3x3 velocityTensor(const f3& w)
 {
-    return f3x3{ f3(0.f,  -w[2],  w[1]),
-                 f3(w[2],  0.f , -w[0]),
-                 f3(-w[1], w[0],  0.f)};
+    return f3x3{ f3(0.0,  -w[2],  w[1]),
+                 f3(w[2],  0.0 , -w[0]),
+                 f3(-w[1], w[0],  0.0)};
 }
 
 inline f3x3 matrixFromAxisAngle(f angle, f3 axis) {
 
 	const f cosinus = cos(angle);
 	const f sinus = sin(angle);
-	const f t = 1.f - cosinus;
+	const f t = 1.0 - cosinus;
 
 	f3x3 mat;
 	mat[0][0] = cosinus + axis[0]*axis[0]*t;
@@ -326,12 +342,12 @@ inline f3x3 matrixFromAxisAngle(f angle, f3 axis) {
 struct quat {
     f x, y, z, w;
     // Constructors
-    quat() : w(1.f), x(0.f), y(0.f), z(0.f) {}
+    quat() : w(1.0), x(0.0), y(0.0), z(0.0) {}
     quat(f w, f x, f y, f z) : w(w), x(x), y(y), z(z) {}
     quat(f w, f3 v) : w(w), x(v.x), y(v.y), z(v.z) {}
 
     f norm() const {
-        return std::sqrtf(w * w + x * x + y * y + z * z);
+        return std::sqrt(w * w + x * x + y * y + z * z);
     }
 
     quat conjugate() const {
@@ -339,7 +355,7 @@ struct quat {
     }
 
     void normalize() {
-        const f invNorm = 1.f / this->norm();
+        const f invNorm = 1.0 / this->norm();
         w = w * invNorm;
         x = x * invNorm;
         y = y * invNorm;
@@ -348,7 +364,7 @@ struct quat {
 
     quat normalized() const {
         quat result;
-        const f invNorm = 1.f / this->norm();
+        const f invNorm = 1.0 / this->norm();
         return quat(w * invNorm, x * invNorm, y * invNorm, z * invNorm);
     }
 
@@ -431,7 +447,7 @@ struct quat {
         quat& orientation = *this;
 		const f theta = angle * dt * 0.5f;
 
-        orientation = (quat(cos(theta), 0.f, 0.f, 0.f) + sin(theta) * quat(0.f, axis)) * orientation;
+        orientation = (quat(cos(theta), 0.0, 0.0, 0.0) + sin(theta) * quat(0.0, axis)) * orientation;
         orientation.normalize();
     }
 };
@@ -498,8 +514,8 @@ inline quat matrixToQuaternion(const f3x3& matrix) {
     f trace = matrix.trace();
     f root;
 
-    if (trace > 0.f) {
-        root = std::sqrtf(trace + 1.f);
+    if (trace > 0.0) {
+        root = std::sqrt(trace + 1.0);
         q.w = 0.5f * root;
         root = 0.5f / root;
         q.x = (matrix[2][1] - matrix[1][2]) * root;
@@ -518,7 +534,7 @@ inline quat matrixToQuaternion(const f3x3& matrix) {
         size_t j = next[i];
         size_t k = next[j];
 
-        root = std::sqrtf(matrix[i][i] - matrix[j][j] - matrix[k][k] + 1.f);
+        root = std::sqrt(matrix[i][i] - matrix[j][j] - matrix[k][k] + 1.0);
         f* qArr[3] = { &q.x, &q.y, &q.z };
         *qArr[i] = 0.5f * root;
         root = 0.5f / root;
@@ -530,55 +546,55 @@ inline quat matrixToQuaternion(const f3x3& matrix) {
     return q;
 }
 
-inline f3x3 createRollMatrix(const f3& orientation) {
-    f angle = orientation.x;
-    f c = std::cos(angle);
-    f s = std::sin(angle);
+inline f3x3 precessionMatrix(const f3& orientation) {
+    const f angle = orientation.x;
+    const f c = std::cos(angle);
+    const f s = std::sin(angle);
 
-    return f3x3{ f3(1.0, 0.0, 0.0),
-                f3(0.0, c, -s),
-                f3(0.0, s, c) };
+    return f3x3{ f3(c, s, 0.0),
+                f3(-s, c, 0.0),
+                f3(0.0, s, 0.0) };
 }
 
 // Function to create a rotation matrix for a rotation around the Y-axis (pitch)
-inline f3x3 createPitchMatrix(const f3& orientation) {
-    f angle = orientation.y;
-    f c = std::cos(angle);
-    f s = std::sin(angle);
-    return f3x3{ f3(c, 0.0, s),
-                f3(0.0, 1.0, 0.0),
-                f3(-s, 0.0, c) };
+inline f3x3 nutationMatrix(const f3& orientation) {
+    const f angle = orientation.y;
+    const f c = std::cos(angle);
+    const f s = std::sin(angle);
+    return f3x3{ f3(1.0, 0.0, 0.0),
+                f3(0.0, c, s),
+                f3(0.0, -s, c) };
 }
 
 // Function to create a rotation matrix for a rotation around the Z-axis (yaw)
-inline f3x3 createYawMatrix(const f3& orientation) {
-    f angle = orientation.z;
-    f c = std::cos(angle);
-    f s = std::sin(angle);
-    return f3x3{ f3(c, -s, 0.0),
-                f3(s, c, 0.0),
+inline f3x3 spinMatrix(const f3& orientation) {
+    const f angle = orientation.z;
+    const f c = std::cos(angle);
+    const f s = std::sin(angle);
+    return f3x3{ f3(c, s, 0.0),
+                f3(-s, c, 0.0),
                 f3(0.0, 0.0, 1.0) };
 }
 
 
 inline f3x3 eulerAngleToMatrix(f3 orientation)
 {
-    const f& roll = orientation.x;
-    const f& pitch = orientation.y;
-    const f& yaw = orientation.z;
+    const f& precess = fmod(orientation.x, M_PI * 2.0);
+    const f& nutate = fmod(orientation.y, M_PI * 2.0);
+    const f& spin = fmod(orientation.z, M_PI * 2.0);
 
-    f c_yaw = std::cos(yaw);
-    f s_yaw = std::sin(yaw);
-    f c_pitch = std::cos(pitch);
-    f s_pitch = std::sin(pitch);
-    f c_roll = std::cos(roll);
-    f s_roll = std::sin(roll);
+    f cphi = std::cos(precess);
+    f sphi = std::sin(precess);
+    f ctheta = std::cos(nutate);
+    f stheta = std::sin(nutate);
+    f cpsi = std::cos(spin);
+    f spsi = std::sin(spin);
 
     // Create the matrix
     return f3x3{
-        f3{c_pitch * c_yaw, c_pitch * s_yaw, -s_pitch},
-        f3{s_roll * s_pitch * c_yaw - c_roll * s_yaw, s_roll * s_pitch * s_yaw + c_roll * c_yaw, s_roll * c_pitch},
-        f3{c_roll * s_pitch * c_yaw + s_roll * s_yaw, c_roll * s_pitch * s_yaw - s_roll * c_yaw, c_roll * c_pitch}
+        f3{ cpsi * cphi - ctheta * sphi * spsi,  cpsi * sphi + ctheta * cphi * spsi, stheta * spsi},
+        f3{-spsi * cphi - ctheta * sphi * cpsi, -spsi * sphi + ctheta * cphi * cpsi, stheta * cpsi},
+        f3{ sphi * stheta,                       -cphi * stheta,                      ctheta}
     };
 }
 
@@ -599,28 +615,28 @@ struct SimulationContext
 	f3x3 ComputeInertiaTensor() const
 	{
 		const f mass = this->mass();
-		return f3x3{ f3((powf(lengths[1], 2) + powf(lengths[2], 2))* mass / 12.f , 0.f, 0.f),
-			f3(0.f, (powf(lengths[0], 2) + powf(lengths[2], 2))* mass / 12.f , 0.f),
-			f3(0.f, 0.f, (powf(lengths[0], 2) + powf(lengths[1], 2))* mass / 12.f) };
+		return f3x3{ f3((pow(lengths[1], 2) + pow(lengths[2], 2))* mass / 12.0 , 0.0, 0.0),
+			f3(0.0, (pow(lengths[0], 2) + pow(lengths[2], 2))* mass / 12.0 , 0.0),
+			f3(0.0, 0.0, (pow(lengths[0], 2) + pow(lengths[1], 2))* mass / 12.0) };
 	}
 
 	f3x3 ComputeInvInertiaTensor() const
 	{
 		const f mass = this->mass();
-		if (mass <= 0.f)
+		if (mass <= 0.0)
 		{
 			throw std::runtime_error("Null density is not allowed!");
 		}
 
-		return f3x3{ f3(12.f / (powf(lengths[1], 2) + powf(lengths[2], 2)* mass) , 0.f, 0.f),
-			f3(0.f, 12.f / (powf(lengths[0], 2) + powf(lengths[2], 2)* mass) , 0.f),
-			f3(0.f, 0.f, 12.f / (powf(lengths[0], 2) + powf(lengths[1], 2)* mass)) };
+		return f3x3{ f3(12.0 / ((pow(lengths[1], 2) + pow(lengths[2], 2))* mass) , 0.0, 0.0),
+			f3(0.0, 12.0 / ((pow(lengths[0], 2) + pow(lengths[2], 2))* mass) , 0.0),
+			f3(0.0, 0.0, 12.0 / ((pow(lengths[0], 2) + pow(lengths[1], 2))* mass)) };
 	}
 
     f3 ComputeInitialAngularVelocity(const f3x3& invInertiaTensor) const
     {
         const f mass = this->mass();
-        if (mass <= 0.f)
+        if (mass <= 0.0)
         {
             throw std::runtime_error("Null density is not allowed!");
         }
@@ -633,7 +649,7 @@ struct SimulationContext
     //a*dw/dt + (b - c) * wa*wb = 0
     f3 ComputeRotationAxis(const f3x3& inertiaTensor, const f3x3& invInertiaTensor, const f3& w) const
     {
-        return invInertiaTensor * cross(w, inertiaTensor * w) * (-1.f);
+        return invInertiaTensor * cross(w, inertiaTensor * w) * (-1.0);
     }
 
 	//a*dw/dt + (b - c) * wa*wb = 0
@@ -656,6 +672,7 @@ struct SimulationContext
         f3 k4 = ComputeAngularAcceleration(inertiaTensor, w + dt * k3);
 
         return w + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4);
+        //return w + k1 * dt;
     }
 };
 
