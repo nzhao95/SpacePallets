@@ -70,10 +70,11 @@ extern "C" int _tmain(int /* argc */, TCHAR** /* argv */)
         CANDIDATE::GlobalInit();
 
         const size_t arraySize = array_size(contexts);
-        for (size_t i = 5 ; i < arraySize; ++i)
+        for (size_t i = 0; i < arraySize; ++i)
         {
             f3x3 const result = CANDIDATE::Simulate(contexts[i]);
             f diff = frobenius_norm(result - reference_solutions[i]);
+            std::cout << "disired quat value : " << matrixToQuaternion(reference_solutions[i]) << "\n";
             if (std::abs(diff) < simulation_epsilon)
             {
                 std::printf("OK:      Simulation %zd: Difference with reference %f\n", i, diff);
@@ -82,7 +83,6 @@ extern "C" int _tmain(int /* argc */, TCHAR** /* argv */)
             else
             {
                 std::printf("TOO FAR: Simulation %zd: Difference with reference %f\n", i, diff);
-                std::cout << "disired quat value : " << matrixToQuaternion(reference_solutions[i]) << "\n";
                 std::cout << "Output is : \n" << result << "\nshould have been : \n" << reference_solutions[i] << "\n";
             }
             

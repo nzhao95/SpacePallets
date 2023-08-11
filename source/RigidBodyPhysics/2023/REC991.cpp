@@ -7,7 +7,7 @@
 namespace REC991
 {
 using namespace rigidbody;
-static constexpr f time_step = 0.001;
+static constexpr f time_step = 0.0001;
 static bool shouldDraw = false;
 
 void GlobalInit()
@@ -32,41 +32,32 @@ rigidbody::f3x3 Simulate(rigidbody::SimulationContext const& context)
 	const f3x3& I = context.ComputeInertiaTensor();
 	const f3x3& invI = context.ComputeInvInertiaTensor();
     const f3& invIDiag = f3(invI[0][0], invI[1][1], invI[2][2]);
-	f3 angular_velocity = context.ComputeInitialAngularVelocity(invI);
+	f3 frame_angular_velocity = context.ComputeInitialAngularVelocity(invI);
+    f3 global_angular_velocity = frame_angular_velocity;
 
     std::vector<f3> velocities;
-    velocities.push_back(angular_velocity);
+    velocities.push_back(global_angular_velocity);
 
     const f H = (cross(context.initial_impulse_application_point, context.initial_impulse)).norm();
 
-    //f3 orientation;
-    //f3x3 orientation{ f3x3::id() };
     quat orientation;
-
-	f3 axis = f3(angular_velocity.x, angular_velocity.y, angular_velocity.z);
-    f angle = axis.norm();
-    f3 direction = axis.normalized();
-
-    quat rotQuat = angleAxisToQuaternion(angle * time_step, direction);
 
     f current_time = 0.0;
     int iter = 0;
 
+    f dynamic_time_step = pow(10, -(int)std::log10(context.initial_impulse.norm() / context.density * context.final_time) - 2);
+    std::cout << "time step : " << dynamic_time_step << "\n";
+
     while (current_time < final_time)
     {
-        //const f3 axis = f3(angular_velocity.x, angular_velocity.y, angular_velocity.z);
-        //const f angle_mag = axis.norm();
-        //const f3 axisNormed = axis.normalized();
-        //const f3x3 W = velocityTensor(angular_velocity);
+        orientation.applyRotationStep(global_angular_velocity, dynamic_time_step);
 
-        orientation.applyRotationStep(angular_velocity, time_step);
-	    ////f prevAngle = angle;
-        
-        //f3x3 mat = eulerAngleToMatrix(orientation);
-        //quaternionToAxisAngle(orientation, angle, direction);
-        angular_velocity = context.UpdateAngularVelocity(I, angular_velocity, time_step);
-        velocities.push_back(angular_velocity * 10.0);
+        frame_angular_velocity = context.UpdateAngularVelocity(I, frame_angular_velocity, dynamic_time_step);
+        global_angular_velocity = orientation.rotate(frame_angular_velocity);
+        //std::cout << newI << ", " << angular_velocity<<   "\n";
+        velocities.push_back(global_angular_velocity * 10.0);
 
+        //f energy = (I * frame_angular_velocity).norm();
         //if (iter % 1000 == 0)
         //    std::cout << energy / H << " energy is" << H << " and velocity is " << angular_velocity << "\n";
 
@@ -76,17 +67,12 @@ rigidbody::f3x3 Simulate(rigidbody::SimulationContext const& context)
             draw::display(context, quaternionToMatrix(orientation.normalized()), velocities);
         }
 
-        current_time += time_step;
+        current_time += dynamic_time_step;
         iter += 1;
     }
 
-    f energy = (I * angular_velocity).norm();
-    std::cout << "energy loss : " << 1.0 - energy / H << "\n";
-    //orientation.applyRotationStep(angular_velocity, final_time);
-    //return eulerAngleToMatrix(orientation);
     std::cout << "final quat value : " << orientation <<"\n";
     return quaternionToMatrix(orientation.normalized());
-    //return matrixFromAxisAngle(angle_mag * final_time, axisNormed);
 }
 
 } // namespace REC991

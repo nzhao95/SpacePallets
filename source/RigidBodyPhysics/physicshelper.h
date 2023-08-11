@@ -266,12 +266,13 @@ struct f3x3
     }
 
     // Invert a 3x3 matrix
-    bool inverse(f3x3& invertedMatrix) {
+    f3x3 inverse() const {
+        f3x3 invertedMatrix;
         f det = this->det();
 
         // Check if the matrix is invertible
         if (det == 0.0) {
-            return false;
+            throw std::runtime_error("Matrix is not inversible");
         }
 
         f invDet = 1.0 / det;
@@ -288,7 +289,7 @@ struct f3x3
         invertedMatrix[2][0] = (m[1][0] * m[2][1] - m[1][1] * m[2][0]) * invDet;
         invertedMatrix[2][1] = -(m[0][0] * m[2][1] - m[0][1] * m[2][0]) * invDet;
         invertedMatrix[2][2] = (m[0][0] * m[1][1] - m[0][1] * m[1][0]) * invDet;
-        return true;
+        return invertedMatrix;
     }
 
 };
@@ -408,6 +409,19 @@ struct quat {
 
     quat operator*(f scalar) const {
         return quat(w * scalar, x * scalar, y * scalar, z * scalar);
+    }
+
+    f3 rotate(f3 vec) const
+    {    // Extract the vector part of the quaternion
+        f3 u(x, y, z);
+        return 2.0f * dot(u, vec) * u
+            + (w * w - dot(u, u)) * vec
+            + 2.0f * w *cross(u, vec);
+    }
+
+    f3x3 rotate(f3x3 mat) const
+    {
+        return f3x3{ this->rotate(mat[0]), this->rotate(mat[1]), this->rotate(mat[2]) };
     }
 
     friend quat operator*(f scalar, const quat& quat) {
@@ -655,13 +669,9 @@ struct SimulationContext
 	//a*dw/dt + (b - c) * wa*wb = 0
 	f3 ComputeAngularAcceleration(const f3x3& inertiaTensor, const f3& w) const
 	{
-        const f Ix = inertiaTensor[0][0];
-        const f Iy = inertiaTensor[1][1];
-        const f Iz = inertiaTensor[2][2];
+        const f3x3 invI = inertiaTensor.inverse();
 
-        return f3 { (Iy - Iz) / Ix * w[1] * w[2],
-                    (Iz - Ix) / Iy * w[0] * w[2],
-                    (Ix - Iy) / Iz * w[0] * w[1] };
+        return invI * cross(w, inertiaTensor * w) * (-1.0);
 	}
 
     f3 UpdateAngularVelocity(const f3x3& inertiaTensor, const f3& w, const f dt) const
