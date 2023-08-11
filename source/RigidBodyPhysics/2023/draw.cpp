@@ -19,11 +19,9 @@ namespace draw
 
     void Init()
     {
-        /* Initialize the library */
         if (!glfwInit())
             return;
 
-        /* Create a windowed mode window and its OpenGL context */
         GLwindow = glfwCreateWindow(640, 480, "Rigid Body", NULL, NULL);
         if (!GLwindow)
         {
@@ -31,7 +29,6 @@ namespace draw
             return;
         }
 
-        /* Make the window's context current */
         glfwMakeContextCurrent(GLwindow);
         glEnable(GL_DEPTH_TEST);
 
@@ -82,26 +79,21 @@ namespace draw
             1, 1, 1,    1, 1, 1,    1, 1, 1,    1, 1, 1
         };
 
-        //glRotatef(angle, axis.x, axis.y, axis.z);
-
-        /* We have a color array and a vertex array */
         glEnableClientState(GL_VERTEX_ARRAY);
         glEnableClientState(GL_COLOR_ARRAY);
         glVertexPointer(3, GL_DOUBLE, 0, vertices);
         glColorPointer(3, GL_DOUBLE, 0, colors);
 
-        /* Send data : 24 vertices */
         glDrawArrays(GL_QUADS, 0, 24);
 
-        /* Cleanup states */
         glDisableClientState(GL_COLOR_ARRAY);
         glDisableClientState(GL_VERTEX_ARRAY);
     }
 
     void drawLine(const f3& direction, const f3& origin) {
         glBegin(GL_LINES);
-        glVertex3f(origin[0], origin[1], origin[2]); // Start point of the line
-        glVertex3f(direction[0], direction[1], direction[2]);   // End point of the line
+        glVertex3d(origin[0], origin[1], origin[2]); // Start point of the line
+        glVertex3d(direction[0], direction[1], direction[2]);   // End point of the line
         glEnd();
     }
 
@@ -111,7 +103,6 @@ namespace draw
         glfwGetWindowSize(GLwindow, &windowX, &windowY);
         glViewport(0, 0, windowX, windowY);
 
-        // Draw stuff
         glClearColor(0.f, 0.f, 0.4f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -122,16 +113,19 @@ namespace draw
         glMatrixMode(GL_MODELVIEW_MATRIX);
         glTranslatef(0, 0, -10);
         glRotatef(20, 0, 1, 0);
-        // Draw the cube
+
+        // Draw the cuboid
         drawCube(context, rotMat);
 
         glDisable(GL_DEPTH_TEST);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+        // Angular Momentum Vector, should be constant
         glColor3f(0.0f, 1.0f, 0.0f);
         drawLine(cross(context.initial_impulse_application_point, context.initial_impulse));
 
+        // Follow x axis of the Cuboid
         glColor3f(1.0f, 1.0f, 0.0f);
         drawLine(rotMat * f3(1.0, 0.0, 0.0) * (context.lengths[0] + 1.f));
 
@@ -140,21 +134,19 @@ namespace draw
         glColor3f(1.0f, 0.0f, 0.0f);
         drawLine(angularVelocities[s - 1]);
 
+        //Draw the angular velocities as they are computed. Should form an ellipsoid around the angular momentum
         glEnable(GL_DEPTH_TEST);
         for (size_t i = 1; i < s; i++)
         {
             glBegin(GL_TRIANGLES);
             glColor4f(0.5f, 1.0f, 0.0f, 0.2f);
-            glVertex3f(angularVelocities[i - 1][0], angularVelocities[i - 1][1], angularVelocities[i - 1][2]);
+            glVertex3d(angularVelocities[i - 1][0], angularVelocities[i - 1][1], angularVelocities[i - 1][2]);
             glColor4f(0.5f, 1.0f, 0.0f, 0.5f);
-            glVertex3f(0.0, 0.0, 0.0);
+            glVertex3d(0.0, 0.0, 0.0);
             glColor4f(0.5f, 1.0f, 0.0f, 0.2f);
-            glVertex3f(angularVelocities[i][0], angularVelocities[i][1], angularVelocities[i][2]);
+            glVertex3d(angularVelocities[i][0], angularVelocities[i][1], angularVelocities[i][2]);
             glEnd();
         }
-
-        //glColor3f(1.0f, 0.0f, 0.0f);
-        //drawLine(axis * 5.f);
 
         glfwSwapBuffers(GLwindow);
     }

@@ -11,6 +11,8 @@
 #include <Helpers.h>
 #include "physicshelper.h"
 
+#include <chrono>
+
 #ifndef CANDIDATE
 #define CANDIDATE REC991
 #endif
@@ -68,28 +70,35 @@ extern "C" int _tmain(int /* argc */, TCHAR** /* argv */)
     try
     {
         CANDIDATE::GlobalInit();
+        auto startTime = std::chrono::high_resolution_clock::now();
 
         const size_t arraySize = array_size(contexts);
+
         for (size_t i = 0; i < arraySize; ++i)
         {
+            auto simulationStartTime = std::chrono::high_resolution_clock::now();;
             f3x3 const result = CANDIDATE::Simulate(contexts[i]);
             f diff = frobenius_norm(result - reference_solutions[i]);
-            std::cout << "disired quat value : " << matrixToQuaternion(reference_solutions[i]) << "\n";
             if (std::abs(diff) < simulation_epsilon)
             {
                 std::printf("OK:      Simulation %zd: Difference with reference %f\n", i, diff);
-                std::cout << "Output is : \n" << result << "\nshould have been : \n" << reference_solutions[i] << "\n";
             }
             else
             {
                 std::printf("TOO FAR: Simulation %zd: Difference with reference %f\n", i, diff);
-                std::cout << "Output is : \n" << result << "\nshould have been : \n" << reference_solutions[i] << "\n";
             }
-            
+            auto simulationEndTime = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(simulationEndTime - simulationStartTime);
+            std::cout << "Simulation Duration (seconds): "
+                << duration << "\n";
 #ifdef HAVE_CHECK
             // plug more tests here ?
 #endif
         }
+        auto endTime = std::chrono::high_resolution_clock::now();
+        auto duration = duration_cast<std::chrono::milliseconds>(endTime - startTime);
+        std::cout << "Total Time (seconds): "
+            << duration << "\n";
         
         CANDIDATE::GlobalTeardown();
     }
