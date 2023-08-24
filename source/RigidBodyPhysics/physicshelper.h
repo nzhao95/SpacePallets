@@ -14,6 +14,7 @@ namespace rigidbody
 #endif
 
 using f = double;
+static int VECTOR_COPIES = 0;
 
 struct f3
 {
@@ -25,6 +26,7 @@ struct f3
         };
         f v[3];
     };
+
 
     f3() : v{ 0.0, 0.0, 0.0 } {}
     f3(f x, f y, f z) : v{ x, y, z } {}
@@ -42,7 +44,7 @@ struct f3
     {
         return f3(x * rhs.x, y * rhs.y, z * rhs.z);
     }
-    bool operator==(const f3 rhs)
+    bool operator==(const f3& rhs) const
     {
         return v[0] == rhs[0] && v[1] == rhs[1] && v[2] == rhs[2];
     }
@@ -63,16 +65,16 @@ struct f3
     {
         return f3(-x, -y, -z);
     }
-    f operator[](int const a) const
+    const f& operator[](int a) const
     {
         return v[a];
     }
-    f& operator[](int const a)
+    f& operator[](int a)
     {
         return v[a];
     }
 
-    friend f3 operator*(f scal, f3 v)
+    friend f3 operator*(const f scal, const f3& v)
     {
         return f3(scal * v.x, scal * v.y, scal * v.z);
     }
@@ -100,12 +102,12 @@ inline std::ostream& operator<<(std::ostream& os, const f3& v) {
     return os;
 }
 
-inline f dot(f3 a, f3 b)
+inline f dot(const f3& a, const f3& b)
 {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-inline f3 cross(f3 a, f3 b)
+inline f3 cross(const f3& a, const f3& b)
 {
     return f3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
 }
@@ -115,8 +117,7 @@ struct f3x3
     f3 m[3];
 
     f3x3() { f3(), f3(), f3(); }
-
-    f3x3(f3 row0, f3 row1, f3 row2)
+    f3x3(const f3& row0, const f3& row1, const f3& row2)
     {
         m[0][0] = row0[0];
         m[0][1] = row0[1];
@@ -154,19 +155,14 @@ struct f3x3
         return result;
     }
 
-    bool operator==(const f3x3 rhs)
-    {
-        return m[0] == rhs[0] && m[1] == rhs[1] && m[2] == rhs[2];
-    }
-
     f3 operator*(f3 const& rhs) const
     {
-        f3 result;
-        for (int i = 0; i < 3; ++i)
-        {
-            result[i] = dot(m[i], rhs);
-        }
-        return result;
+        return f3(dot(m[0], rhs), dot(m[1], rhs), dot(m[2], rhs));
+    }
+
+    bool operator==(const f3x3& rhs) const
+    {
+        return m[0] == rhs[0] && m[1] == rhs[1] && m[2] == rhs[2];
     }
 
     static f3x3 id()
@@ -177,7 +173,7 @@ struct f3x3
         return result;
     }
 
-    static f3x3 diagonal(f3 d)
+    static f3x3 diagonal(const f3& d)
     {
         f3x3 result;
         for (int i = 0; i < 3; ++i)
@@ -194,7 +190,7 @@ struct f3x3
         return result;
     }
 
-    f3x3 operator+(f3x3 const& rhs) const
+    f3x3 operator+(const f3x3& rhs) const
     {
         f3x3 result;
         for (int i = 0; i < 3; ++i)
@@ -203,7 +199,7 @@ struct f3x3
         return result;
     }
 
-    f3x3 operator-(f3x3 const& rhs) const
+    f3x3 operator-(const f3x3& rhs) const
     {
         f3x3 result;
         for (int i = 0; i < 3; ++i)
@@ -212,12 +208,12 @@ struct f3x3
         return result;
     }
 
-    f3 operator[](int const a) const
+    const f3& operator[](int a) const
     {
         return m[a];
     }
 
-    f3& operator[](int const a)
+    f3& operator[](int a)
     {
         return m[a];
     }
@@ -233,7 +229,7 @@ inline std::ostream& operator<<(std::ostream& os, const f3x3& m) {
     return os;
 }
 
-inline f3x3 operator*(f scal, f3x3 m)
+inline f3x3 operator*(f scal, const f3x3& m)
 {
     return m*scal;
 };
@@ -309,15 +305,15 @@ struct quat {
         return quat(w * scalar, x * scalar, y * scalar, z * scalar);
     }
 
-    f3 rotate(f3 vec) const
-    {    // Extract the vector part of the quaternion
+    f3 rotate(const f3& vec) const
+    {
         f3 u(x, y, z);
         return 2.0 * dot(u, vec) * u
             + (w * w - dot(u, u)) * vec
             + 2.0 * w *cross(u, vec);
     }
 
-    f3x3 rotate(f3x3 mat) const
+    f3x3 rotate(const f3x3& mat) const
     {
         return f3x3{ this->rotate(mat[0]), this->rotate(mat[1]), this->rotate(mat[2]) };
     }
@@ -332,14 +328,57 @@ struct quat {
         return (w == rhs.w && x == rhs.x && y == rhs.y && z == rhs.z);
     }
 
-    void applyRotationStep(const f3& angularVelocity, f dt) {
-		const f angle = angularVelocity.norm();
-		const f3 axis = angularVelocity / angle;
-        quat& orientation = *this;
-		const f theta = angle * dt * 0.5f;
+    f3 ComputeAngularAcceleration(const f3& eulerMotionVector, const f3& w) const
+    {
+        return f3{ eulerMotionVector[0] * w[1] * w[2],
+                   eulerMotionVector[1] * w[0] * w[2],
+                   eulerMotionVector[2] * w[0] * w[1]};
+    }
 
-        orientation = (quat(cos(theta), 0.0, 0.0, 0.0) + quat(0.0, sin(theta) * axis)) * orientation;
-        orientation.normalize();
+    f3 ComputeAngularVelocity(const f3& eulerMotionVector, const f3& w, const f dt) const
+    {
+        // Runge Kutta
+        const f3 k1 = ComputeAngularAcceleration(eulerMotionVector, w);
+        const f3 k2 = ComputeAngularAcceleration(eulerMotionVector, w + 0.5 * dt * k1);
+        const f3 k3 = ComputeAngularAcceleration(eulerMotionVector, w + 0.5 * dt * k2);
+        const f3 k4 = ComputeAngularAcceleration(eulerMotionVector, w + dt * k3);
+
+        return w + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4);
+    }
+
+    static void computeCGCoeef(const f3& w, f b, f dt, quat& outQuat)
+    {
+        const f angle = w.norm();
+        const f theta = angle * dt * 0.5 * b;
+        const f3 axis = sin(theta) * w / angle;
+
+        outQuat.w = cos(theta);
+        outQuat.x = axis.x;
+        outQuat.y = axis.y;
+        outQuat.z = axis.z;
+    }
+
+    void applyRotationStep(const f3& eulerMotionVector, f3& frame_angular_velocity, f dt)
+    {
+        //Crouch Grossman 3
+        static constexpr f b1 = 13.0 / 51.0;
+        static constexpr f b2 = - 2.0 / 3.0;
+        static constexpr f b3 = 24.0 / 17.0;
+
+        static constexpr f c1 = 0.0;
+        static constexpr f c2 = 3.0 / 4.0;
+        static constexpr f c3 = 17.0 / 24.0;
+
+        quat& orientation = *this;
+        quat k;
+        computeCGCoeef(frame_angular_velocity, b1, dt, k);
+        orientation = orientation * k;
+        computeCGCoeef(ComputeAngularVelocity(eulerMotionVector, frame_angular_velocity, c2 * dt), b2, dt, k);
+        orientation = orientation * k;
+        computeCGCoeef(ComputeAngularVelocity(eulerMotionVector, frame_angular_velocity, c3 * dt), b3, dt, k);
+        orientation = orientation * k;
+
+        frame_angular_velocity = ComputeAngularVelocity(eulerMotionVector, frame_angular_velocity, dt);
     }
 };
 
@@ -367,7 +406,7 @@ struct SimulationContext
     f3 initial_impulse_application_point{}; // Point on the body where the impulse is applied
 
     f final_time;                           // Final time of the simulation
-	
+
 	f mass() const
 	{
 		return lengths[0] * lengths[1] * lengths[2] * density;
@@ -401,27 +440,10 @@ struct SimulationContext
         {
             throw std::runtime_error("Null density is not allowed!");
         }
-        
+
         f3 torque = cross(initial_impulse_application_point, initial_impulse);
 
         return invInertiaTensor * torque;
-    }
-
-    f3 ComputeAngularAcceleration(const f3& eulerMotionVector, const f3& w) const
-	{
-        return f3{  eulerMotionVector[0] * w[1] * w[2],
-                    eulerMotionVector[1] * w[0] * w[2],
-                    eulerMotionVector[2] * w[0] * w[1] };
-	}
-
-    f3 UpdateAngularVelocity(const f3& eulerMotionVector, const f3& w, const f dt) const
-    {
-        const f3 k1 = ComputeAngularAcceleration(eulerMotionVector, w);
-        const f3 k2 = ComputeAngularAcceleration(eulerMotionVector, w + 0.5 * dt * k1);
-        const f3 k3 = ComputeAngularAcceleration(eulerMotionVector, w + 0.5 * dt * k2);
-        const f3 k4 = ComputeAngularAcceleration(eulerMotionVector, w + dt * k3);
-
-        return w + (dt / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4);
     }
 };
 

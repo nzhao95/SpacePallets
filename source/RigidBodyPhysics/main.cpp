@@ -99,7 +99,7 @@ extern "C" int _tmain(int /* argc */, TCHAR** /* argv */)
         auto duration = duration_cast<std::chrono::milliseconds>(endTime - startTime);
         std::cout << "Total Time (seconds): "
             << duration << "\n";
-        
+
         CANDIDATE::GlobalTeardown();
     }
     catch(const std::exception& e)
